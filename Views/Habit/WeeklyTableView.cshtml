@@ -1,0 +1,305 @@
+﻿@model IEnumerable<HabitTrackerApp.Models.Habit>
+@using System.Globalization
+
+@{
+  DateTime weekStart = ViewBag.WeekStart ?? DateTime.Today;
+  var days = Enumerable.Range(0, 7).Select(i => weekStart.AddDays(i)).ToList();
+  var weekNumber = ISOWeek.GetWeekOfYear(weekStart).ToString("D2");
+  var weekValue = $"{weekStart:yyyy}-W{weekNumber}";
+  var prevWeek = weekStart.AddDays(-7);
+  var nextWeek = weekStart.AddDays(7);
+  var prevWeekValue = $"{prevWeek:yyyy}-W{ISOWeek.GetWeekOfYear(prevWeek):D2}";
+  var nextWeekValue = $"{nextWeek:yyyy}-W{ISOWeek.GetWeekOfYear(nextWeek):D2}";
+  var today = DateTime.Today;
+  int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
+  var todayWeekStart = today.AddDays(-diff);
+  var todayWeekValue = $"{todayWeekStart:yyyy}-W{ISOWeek.GetWeekOfYear(todayWeekStart):D2}";
+  var sortedHabits = Model.ToList();
+  HabitTrackerApp.Models.Habit previousHabit = null;
+}
+
+@section Scripts {
+  <script>
+    async function toggleCompletedAjax(checkbox) {
+        const habitId = checkbox.dataset.habitid;
+        const date = checkbox.dataset.date;
+        const payload = { HabitId: parseInt(habitId), Date: date };
+        try {
+            const response = await fetch('/Habit/ToggleCompletedAjax', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                checkbox.checked = !checkbox.checked;
+                alert("Error toggling habit (status " + response.status + ")");
+                return;
+            }
+            const data = await response.json();
+            if (!data.success) {
+                checkbox.checked = !checkbox.checked;
+                alert("Server error: " + data.message);
+            } else {
+                const td = checkbox.closest('td');
+                if (td) {
+                    if (data.isCompleted) {
+                        td.classList.add('completed-cell');
+                    } else {
+                        td.classList.remove('completed-cell');
+                    }
+                }
+                const row = checkbox.closest('tr');
+                updateProgressForRow(row);
+                updateHabitDoneMessage(row);
+                checkIfAllHabitsForWeek();
+            }
+        } catch (err) {
+            checkbox.checked = !checkbox.checked;
+            alert("Network error: " + err);
+        }
+    }
+
+    function updateProgressForRow(row) {
+        if (!row) return;
+        const progressBar = row.querySelector('.progress-bar');
+        if (!progressBar) return;
+        const dayCells = row.querySelectorAll('.day-cell');
+        let totalDays = dayCells.length;
+        let completedCount = 0;
+        dayCells.forEach(cell => {
+            const cb = cell.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked) {
+                completedCount++;
+            }
+        });
+        let percent = (totalDays === 0) ? 0 : (completedCount * 100.0 / totalDays);
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = percent.toFixed(0) + '%';
+        progressBar.setAttribute('aria-valuenow', percent.toFixed(0));
+    }
+
+    function updateHabitDoneMessage(row) {
+        if (!row) return;
+        const dayCells = row.querySelectorAll('.day-cell');
+        let totalDays = dayCells.length;
+        let completedCount = 0;
+        dayCells.forEach(cell => {
+            const cb = cell.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked) {
+                completedCount++;
+            }
+        });
+        const doneMsg = row.querySelector('.done-message');
+        if (!doneMsg) return;
+        doneMsg.style.display = (completedCount === totalDays && totalDays > 0) ? 'inline' : 'none';
+    }
+
+    function checkIfAllHabitsForWeek() {
+        const allRows = document.querySelectorAll('.weekly-habit-row');
+        if (allRows.length === 0) return;
+        let allDone = true;
+        allRows.forEach(row => {
+            const dayCells = row.querySelectorAll('.day-cell');
+            let totalDays = dayCells.length;
+            let completedCount = 0;
+            dayCells.forEach(cell => {
+                const cb = cell.querySelector('input[type="checkbox"]');
+                if (cb && cb.checked) {
+                    completedCount++;
+                }
+            });
+            if (completedCount !== totalDays || totalDays === 0) {
+                allDone = false;
+            }
+        });
+        const allDoneMsg = document.getElementById('all-week-done-message');
+        if (allDoneMsg) {
+            allDoneMsg.style.display = allDone ? 'block' : 'none';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const allRows = document.querySelectorAll('.weekly-habit-row');
+        allRows.forEach(row => {
+            updateProgressForRow(row);
+            updateHabitDoneMessage(row);
+        });
+        checkIfAllHabitsForWeek();
+    });
+  </script>
+}
+
+@section Styles {
+  <style>
+   
+    .habit-card-body {
+      padding: 1rem;
+    }
+
+  </style>
+}
+
+<div class="habit-card">
+  <div class="habit-header d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center">
+      <a asp-action="WeeklyTableView" asp-route-weekStart="@prevWeekValue" class="btn btn-outline-light mr-2">
+        <i class="fas fa-arrow-left"></i>
+      </a>
+      <div class="text-center">
+        <h4 class="mb-0">Week of @weekStart.ToString("MMM dd, yyyy", CultureInfo.InvariantCulture)</h4>
+        <div class="btn-group mt-2">
+          <a asp-action="WeeklyTableView" asp-route-weekStart="@todayWeekValue" class="btn btn-sm btn-light">Today</a>
+          <form method="get" asp-action="WeeklyTableView" class="d-inline-flex align-items-center ml-2">
+            <input type="week" name="weekStart" class="form-control form-control-sm" style="width: auto;" value="@weekValue" />
+            <button type="submit" class="btn btn-sm btn-light ml-2">Go</button>
+          </form>
+        </div>
+      </div>
+      <a asp-action="WeeklyTableView" asp-route-weekStart="@nextWeekValue" class="btn btn-outline-light ml-2">
+        <i class="fas fa-arrow-right"></i>
+      </a>
+    </div>
+    <div>
+      <a asp-controller="Habit" asp-action="Create" class="btn btn-success">
+        <i class="fas fa-plus"></i> New Habit
+      </a>
+    </div>
+  </div>
+
+  <div class="habit-card-body">
+    <div class="table-responsive">
+      <table class="habit-table">
+        <thead>
+          <tr>
+            <th style="min-width:80px;">Time</th>
+            <th style="min-width:220px;">Habit</th>
+            @foreach (var day in days)
+            {
+              var isToday = (day.Date == DateTime.Today.Date);
+              <th class="@(isToday ? "today-column" : "")">
+                @day.ToString("ddd")<br />
+                <small>@day.ToString("MM/dd")</small>
+              </th>
+            }
+            <th style="min-width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var habit in sortedHabits)
+          {
+            if (previousHabit != null && previousHabit.TimeOfDayEnd.HasValue && habit.TimeOfDay.HasValue)
+            {
+              var gap = habit.TimeOfDay.Value - previousHabit.TimeOfDayEnd.Value;
+              if (gap.TotalMinutes > 0)
+              {
+                <tr class="gap-row">
+                  <td colspan="@(2 + days.Count + 1)">@gap.TotalMinutes minutes between habits</td>
+                </tr>
+              }
+            }
+
+            int completedCount = 0;
+            int totalDays = 0;
+            for (int i = 0; i < 7; i++)
+            {
+              var date = weekStart.AddDays(i).Date;
+              if (habit.OccursOn(date))
+              {
+                totalDays++;
+                bool done = habit.DailyHabitEntries?.Any(e => e.Date == date && e.IsCompleted) ?? false;
+                if (done) completedCount++;
+              }
+            }
+            double progressPercent = (totalDays == 0) ? 0 : (completedCount * 100.0 / totalDays);
+
+            <tr class="weekly-habit-row">
+              <td>
+                @if (habit.TimeOfDay.HasValue)
+                {
+                  <span class="habit-time" style="white-space: nowrap;">
+                    @habit.TimeOfDay.Value.ToString(@"hh\:mm")
+                    @if (habit.TimeOfDayEnd.HasValue)
+                    {
+                      @(" - " + habit.TimeOfDayEnd.Value.ToString(@"hh\:mm"))
+                    }
+                  </span>
+                }
+              </td>
+              <td>
+                <div class="habit-cell">
+                  @if (!string.IsNullOrEmpty(habit.ImageUrl))
+                  {
+                    <img src="@habit.ImageUrl" alt="@habit.Name" class="habit-icon" />
+                  }
+                  else
+                  {
+                    <i class="fas fa-question-circle"></i>
+                  }
+                  <div>
+                    <strong>@habit.Name</strong><br />
+                    <small>@habit.ShortDescription</small><br />
+                    <small class="text-muted">Category: @(habit.Category?.Name ?? "None")</small>
+                    <div class="mt-2">
+                      <div class="progress">
+                        <div class="progress-bar progress-bar-striped" role="progressbar" style="width:@progressPercent%;" aria-valuenow="@progressPercent.ToString("0")" aria-valuemin="0" aria-valuemax="100">
+                          @progressPercent.ToString("0")%
+                        </div>
+                      </div>
+                      <div class="done-message">
+                        <span><i class="fas fa-check-circle"></i> Done!</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              @foreach (var day in days)
+              {
+                var isToday = (day.Date == DateTime.Today.Date);
+                if (habit.OccursOn(day))
+                {
+                  bool isCompleted = habit.DailyHabitEntries?.Any(e => e.Date == day.Date && e.IsCompleted) ?? false;
+                  <td class="day-cell @(isCompleted ? "completed-cell" : "") @(isToday ? "today-column" : "")" title="@(isCompleted ? "Completed" : "Not completed")">
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;" class="form-check">
+                      <input type="checkbox" class="form-check-input" data-habitid="@habit.Id" data-date="@day.ToString("yyyy-MM-dd")" @(isCompleted ? "checked" : "") onclick="toggleCompletedAjax(this)" />
+                    </div>
+                    <a asp-action="AddReflection" asp-route-habitId="@habit.Id" asp-route-date="@day.ToString("yyyy-MM-dd")" asp-route-returnUrl="@Url.Action("WeeklyTableView", new { weekStart = weekStart.ToString("yyyy-'W'ww") })" class="reflection-link">
+                      <i class="fas fa-edit"></i> Reflection
+                    </a>
+                  </td>
+                }
+                else
+                {
+                  <td class="inactive-cell @(isToday ? "today-column" : "")" title="Does not occur on this day">
+                    <i class="fa-regular fa-circle-xmark"></i>
+                  </td>
+                }
+              }
+              <td>
+                <div class="btn-group">
+                  <a asp-action="Details" asp-route-id="@habit.Id" class="btn btn-outline-primary btn-sm" style="margin-right: 5px;">
+                    <i class="fas fa-info-circle"></i>
+                  </a>
+                  <a asp-controller="Statistics" asp-action="Statistics" asp-route-habitId="@habit.Id" class="btn btn-outline-secondary btn-sm" style="margin-right: 5px;">
+                    <i class="fas fa-chart-line"></i>
+                  </a>
+                  <a asp-action="Edit" asp-route-id="@habit.Id" class="btn btn-outline-success btn-sm" style="margin-right: 5px;">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <a asp-action="Delete" asp-route-id="@habit.Id" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-trash-alt"></i>
+                  </a>
+                </div>
+              </td>
+
+            </tr>
+            previousHabit = habit;
+          }
+        </tbody>
+      </table>
+      
+    </div>
+    <div id="all-week-done-message">
+      Congratulations! You have completed all habits for this week!
+    </div>
+  </div>
+</div>

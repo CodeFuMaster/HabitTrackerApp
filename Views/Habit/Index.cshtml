@@ -1,0 +1,135 @@
+﻿@model IEnumerable<HabitTrackerApp.Models.Habit>
+@{
+  ViewData["Title"] = "My Habits";
+}
+
+<div class="container my-4">
+  <div class="habit-header">My Habits</div>
+  <!-- Filter Control -->
+  <div class="row mb-4">
+    <div class="col-md-8 offset-md-2 text-center">
+      <div class="btn-group" role="group" aria-label="Filter Habits">
+        <button type="button" class="btn btn-outline-secondary filter-btn active" data-filter="active">Active</button>
+        <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="deleted">Deleted</button>
+        <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="all">All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Optional: Search bar for filtering habits by text -->
+  <div class="row mb-4">
+    <div class="col-md-6 offset-md-3">
+      <input type="text" class="form-control" placeholder="Search your habits..." id="habitSearch"/>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end mb-4">
+    <a asp-action="Create" class="btn btn-success">
+      <i class="fas fa-plus-circle"></i> Create New Habit
+    </a>
+  </div>
+
+  <div class="row" id="habitsContainer">
+    @foreach (var habit in Model)
+    {
+      <!-- Add a data attribute for deletion state -->
+      <div class="col-md-4 mb-4 habit-card-wrapper" data-isdeleted="@habit.IsDeleted.ToString().ToLower()">
+        <div class="card habit-card h-100 shadow-sm">
+          <!-- Card Image -->
+          @if (!string.IsNullOrEmpty(habit.ImageUrl))
+          {
+            <img src="@habit.ImageUrl" alt="@habit.Name" class="card-img-top" style="height: 200px; object-fit: cover;">
+          }
+          else
+          {
+            <img src="https://via.placeholder.com/400x200.png?text=No+Image" alt="No Image" class="card-img-top" style="height: 200px; object-fit: cover;">
+          }
+          <!-- Card Body -->
+          <div class="card-body">
+            <h5 class="card-title">@habit.Name</h5>
+            <p class="card-text">@habit.ShortDescription</p>
+            <p class="card-text">
+              <small class="text-muted">
+                @(habit.Category != null ? habit.Category.Name : "No category")
+              </small>
+            </p>
+          </div>
+          <!-- Card Footer with Action Buttons -->
+          <div class="card-footer bg-transparent border-top-0">
+            <div class="btn-group d-flex justify-content-between" role="group">
+              <a asp-action="Details" asp-route-id="@habit.Id" class="btn btn-outline-primary btn-sm" style="margin-right: 5px;">
+                <i class="fas fa-info-circle"></i>
+              </a>
+              <a asp-controller="Statistics" asp-action="Statistics" asp-route-habitId="@habit.Id" class="btn btn-outline-secondary btn-sm" style="margin-right: 5px;">
+                <i class="fas fa-chart-line"></i>
+              </a>
+              <a asp-action="Edit" asp-route-id="@habit.Id" class="btn btn-outline-success btn-sm" style="margin-right: 5px;">
+                <i class="fas fa-edit"></i>
+              </a>
+              <a asp-action="Delete" asp-route-id="@habit.Id" class="btn btn-outline-danger btn-sm">
+                <i class="fas fa-trash-alt"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+
+@section Scripts {
+  <script src="~/lib/jquery/dist/jquery.min.js"></script>
+  <script>
+    // Client-side text search filter
+    $(document).ready(function(){
+      $('#habitSearch').on('keyup', function(){
+        var searchTerm = $(this).val().toLowerCase();
+        $('.habit-card-wrapper').each(function(){
+          var habitName = $(this).find('.card-title').text().toLowerCase();
+          var habitDesc = $(this).find('.card-text').first().text().toLowerCase();
+          if(habitName.indexOf(searchTerm) !== -1 || habitDesc.indexOf(searchTerm) !== -1) {
+            $(this).show();
+          } else {
+            $(this).hide();
+          }
+        });
+      });
+
+      // Filter button group functionality
+          $('.filter-btn').on('click', function(){
+        // Remove active class from all buttons and add to this one
+        $('.filter-btn').removeClass('active');
+        $(this).addClass('active');
+
+        var filter = $(this).data('filter'); // "active", "deleted", or "all"
+        $('.habit-card-wrapper').each(function(){
+          // data() returns a Boolean if the attribute is "true" or "false"
+          var isDeleted = $(this).data('isdeleted');
+          if(filter === 'active'){
+            if(isDeleted){
+              $(this).hide();
+            } else {
+              $(this).show();
+            }
+          } else if(filter === 'deleted'){
+            if(isDeleted){
+              $(this).show();
+            } else {
+              $(this).hide();
+            }
+          } else { // "all"
+            $(this).show();
+          }
+        });
+    });
+
+    });
+  </script>
+  <style>
+    /* Additional hover effect for cards */
+    .habit-card:hover {
+      transform: translateY(-5px);
+      transition: transform 0.3s ease;
+    }
+  </style>
+}

@@ -1,0 +1,23 @@
+﻿@model HabitTrackerApp.Models.HabitMetricDefinition
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+@{
+  ViewData["Title"] = "Delete Metric";
+}
+
+<h2>Delete Metric</h2>
+
+<div class="alert alert-warning">
+  <p>Are you sure you want to delete the metric
+    <strong>@Model.Name</strong> (Unit: @Model.Unit)?</p>
+</div>
+
+<form asp-action="Delete" method="post">
+  <input type="hidden" asp-for="Id" />
+  <button type="submit" class="btn btn-danger">Yes, Delete</button>
+  <a asp-action="Index" asp-route-habitId="@Model.HabitId" class="btn btn-secondary">Cancel</a>
+</form>
+
+@section Scripts {
+  <partial name="_ValidationScriptsPartial" />
+}

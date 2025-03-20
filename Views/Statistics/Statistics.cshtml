@@ -1,0 +1,313 @@
+﻿@using System.Text.Json
+@model HabitStatisticsViewModel
+@{
+  ViewData["Title"] = "Habit Statistics";
+
+  // Retrieve the user's chosen range from ViewBag, defaulting to 8 weeks and 6 months
+  int weeksToShow = ViewBag.WeeksToShow ?? 8;
+  int monthsToShow = ViewBag.MonthsToShow ?? 6;
+}
+
+<div class="habit-card">
+  <div class="habit-header d-flex justify-content-between align-items-center">
+    <h4 class="mb-0">
+      <i class="fas fa-chart-line me-2"></i> @Model.HabitName - Statistics
+    </h4>
+    <div class="d-flex align-items-center">
+      <form method="get" class="d-inline-block me-3">
+        <input type="hidden" name="habitId" value="@Model.HabitId" />
+        <div class="d-flex align-items-center">
+          <label for="weeks" class="form-label me-2">Last # weeks:</label>
+          <input type="number" id="weeks" name="weeksToShow" min="1" max="52"
+                 value="@weeksToShow" class="form-control form-control-sm" style="width:90px;" />
+          <label for="months" class="form-label mx-2">Last # months:</label>
+          <input type="number" id="months" name="monthsToShow" min="1" max="12"
+                 value="@monthsToShow" class="form-control form-control-sm" style="width:90px;" />
+          <button type="submit" class="btn btn-primary btn-sm ms-2">
+            <i class="fas fa-filter"></i> Update
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="p-3">
+    <!-- Stats Row: Completions, Rate, Streaks, etc. -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-primary">
+              <i class="fas fa-check-circle"></i> Total Completions
+            </h5>
+            <span class="fs-3 fw-bold">@Model.TotalCompletions</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-success">
+              <i class="fas fa-percent"></i> Completion Rate
+            </h5>
+            <span class="fs-3 fw-bold">@Model.CompletionRate.ToString("F1")%</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-info">
+              <i class="fas fa-calendar-week"></i> Last 7 Days
+            </h5>
+            <span class="fs-3 fw-bold">@Model.Last7DaysCompletions</span>
+            <p class="mb-0 text-muted">completions</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-warning">
+              <i class="fas fa-bolt"></i> Streaks
+            </h5>
+            <div class="mb-1">
+              <strong>Current:</strong> @Model.CurrentStreak <small>days</small>
+            </div>
+            <div>
+              <strong>Longest:</strong> @Model.LongestStreak <small>days</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Additional Stats Row -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-primary">
+              <i class="fas fa-calendar-check"></i> This Week
+            </h5>
+            <span class="fs-3 fw-bold">@Model.WeeklyCompletions</span>
+            @{
+              var diff = Model.TrendDifference;
+              string diffSign = diff > 0 ? "+" : (diff < 0 ? "-" : "");
+              var diffClass = diff > 0 ? "text-success" : diff < 0 ? "text-danger" : "text-muted";
+            }
+            <p class="mb-0 @(diffClass)">
+              @diffSign@Math.Abs(diff) completions vs last week
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-secondary">
+              <i class="fas fa-star-half-alt"></i> Avg. Score
+            </h5>
+            <span class="fs-3 fw-bold">@Model.AverageScore.ToString("0.0")</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-danger">
+              <i class="fas fa-times-circle"></i> Days Since Last Miss
+            </h5>
+            <span class="fs-3 fw-bold">@Model.DaysSinceLastMiss</span>
+            <p class="text-muted mb-0">Daily only</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-muted">
+              <i class="fas fa-bullseye"></i> Longest Gap
+            </h5>
+            <span class="fs-3 fw-bold">@Model.LongestGap</span>
+            <p class="mb-0 text-muted">days</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly Chart & Table -->
+    <div class="row">
+      <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white fw-bold">
+            <i class="fas fa-chart-bar me-2"></i> Weekly Completions (Bar Chart)
+          </div>
+          <div class="card-body">
+            <canvas id="weeklyCompletionsChart" width="400" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white fw-bold">
+            <i class="fas fa-table me-2"></i> Weekly Completions (Table)
+          </div>
+          <div class="card-body p-0">
+            <table class="habit-table">
+              <thead>
+                <tr>
+                  <th>Year-Week</th>
+                  <th>Completions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach (var w in Model.WeeklyCompletionsList ?? new List<WeeklyCompletionDto>())
+                {
+                  <tr>
+                    <td>@w.Year - @w.WeekNumber</td>
+                    <td>@w.CompletionCount</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly Chart & Table -->
+    <div class="row">
+      <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white fw-bold">
+            <i class="fas fa-chart-bar me-2"></i> Monthly Completions (Bar Chart)
+          </div>
+          <div class="card-body">
+            <canvas id="completionsChart" width="400" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white fw-bold">
+            <i class="fas fa-table me-2"></i> Monthly Completions (Table)
+          </div>
+          <div class="card-body p-0">
+            <table class="habit-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Completions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach (var mc in Model.MonthlyCompletions ?? Enumerable.Empty<MonthlyCompletionDto>())
+                {
+                  <tr>
+                    <td>@mc.Year - @mc.Month</td>
+                    <td>@mc.CompletionCount</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+  <!-- Updated Chart.js CDN URL -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script>
+    // Weekly Chart
+    var weeklyCtx = document.getElementById('weeklyCompletionsChart').getContext('2d');
+    var weeklyLabels = @Html.Raw(JsonSerializer.Serialize(
+    (Model.WeeklyCompletionsList ?? new List<WeeklyCompletionDto>())
+    .Select(w => w.Year + "-W" + w.WeekNumber)
+  ));
+    var weeklyData = @Html.Raw(JsonSerializer.Serialize(
+    (Model.WeeklyCompletionsList ?? new List<WeeklyCompletionDto>())
+    .Select(w => w.CompletionCount)
+  ));
+
+    new Chart(weeklyCtx, {
+      type: 'bar',
+      data: {
+        labels: weeklyLabels,
+        datasets: [{
+          label: 'Weekly Completions',
+          data: weeklyData,
+          backgroundColor: 'var(--primary)' // Use CSS variable for consistency
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ' ' + context.parsed.y + ' completions';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Year-Week' }
+          },
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Completions' },
+            ticks: { stepSize: 1 }
+          }
+        }
+      }
+    });
+
+    // Monthly Chart
+    var ctx = document.getElementById('completionsChart').getContext('2d');
+    var completionsData = @Html.Raw(JsonSerializer.Serialize(
+    Model.MonthlyCompletions?.Select(m => m.CompletionCount) ?? new List<int>()));
+    var labelsData = @Html.Raw(JsonSerializer.Serialize(
+    Model.MonthlyCompletions?.Select(m => m.Year + "-" + m.Month) ?? new List<string>()));
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labelsData,
+        datasets: [{
+          label: 'Monthly Completions',
+          data: completionsData,
+          backgroundColor: 'var(--primary)' // Use CSS variable for consistency
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ' ' + context.parsed.y + ' completions';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Month' }
+          },
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Completions' },
+            ticks: { stepSize: 1 }
+          }
+        }
+      }
+    });
+  </script>
+}

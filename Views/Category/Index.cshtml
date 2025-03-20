@@ -1,0 +1,42 @@
+﻿@model IEnumerable<HabitTrackerApp.Models.Category>
+
+@{
+  ViewData["Title"] = "Categories";
+}
+
+<h1>Categories</h1>
+
+<p>
+  <a asp-action="Create" class="btn btn-primary">Create New Category</a>
+</p>
+
+<table class="table table-bordered table-striped">
+  <thead>
+  <tr>
+    <th>Name</th>
+    <th>Image</th>
+    <th>Description</th>
+    <th style="width:200px;">Actions</th>
+  </tr>
+  </thead>
+  <tbody>
+  @foreach (var item in Model)
+  {
+    <tr>
+      <td>@item.Name</td>
+      <td>
+        @if (!string.IsNullOrEmpty(item.ImageUrl))
+        {
+          <img src="@item.ImageUrl" alt="@item.Name" style="max-width:80px; height:auto;" />
+        }
+      </td>
+      <td>@item.Description</td>
+      <td>
+        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-info">Details</a>
+        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-warning">Edit</a>
+        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-danger">Delete</a>
+      </td>
+    </tr>
+  }
+  </tbody>
+</table>

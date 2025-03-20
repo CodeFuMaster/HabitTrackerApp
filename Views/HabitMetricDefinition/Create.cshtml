@@ -1,0 +1,45 @@
+﻿@using HabitTrackerApp.Models.Enums
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@model HabitTrackerApp.Models.HabitMetricDefinition
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+@{
+  ViewData["Title"] = "Add Metric";
+}
+
+<h2>Add Metric for Habit</h2>
+
+<form asp-action="Create" method="post">
+  <!-- Display any validation errors -->
+  <div asp-validation-summary="All" class="text-danger"></div>
+
+  <!-- Hidden HabitId -->
+  <input type="hidden" asp-for="HabitId" />
+
+  <div class="mb-3">
+    <label asp-for="Name" class="form-label"></label>
+    <input asp-for="Name" class="form-control" />
+    <span asp-validation-for="Name" class="text-danger"></span>
+  </div>
+
+  <div class="mb-3">
+    <label asp-for="Unit" class="form-label"></label>
+    <input asp-for="Unit" class="form-control" />
+    <span asp-validation-for="Unit" class="text-danger"></span>
+  </div>
+
+  <div class="mb-3">
+    <label asp-for="DataType" class="form-label">Data Type</label>
+    <select asp-for="DataType" class="form-select"
+            asp-items="Html.GetEnumSelectList<MetricDataType>()">
+    </select>
+    <span asp-validation-for="DataType" class="text-danger"></span>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save</button>
+  <a asp-action="Index" asp-route-habitId="@Model.HabitId" class="btn btn-secondary">Cancel</a>
+</form>
+
+@section Scripts {
+  <partial name="_ValidationScriptsPartial" />
+}
