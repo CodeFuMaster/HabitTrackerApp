@@ -1,0 +1,251 @@
+﻿@using HabitTrackerApp.Models.Enums
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@model ReflectionViewModel
+
+@{
+  ViewData["Title"] = "Reflection";
+  bool hasReflection = !string.IsNullOrEmpty(Model.Reflection);
+}
+
+<div class="container my-4">
+  <h2 class="mb-3 text-center">Reflection for @Model.Date.ToString("MMM dd, yyyy")</h2>
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <form asp-action="AddReflection" method="post" id="reflectionForm">
+        <input type="hidden" asp-for="HabitId" />
+        <input type="hidden" asp-for="Date" />
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <!-- Reflection text and score -->
+        <div class="mb-3">
+          <label class="form-label">Your Reflection</label>
+          <textarea class="form-control" style="resize: vertical;" rows="6" asp-for="Reflection"></textarea>
+        </div>
+        <div class="mb-3">
+          <label asp-for="Score" class="form-label">Score (1 to 10)</label>
+          <input asp-for="Score" type="number" class="form-control" min="1" max="10" placeholder="Enter your score" />
+          <span asp-validation-for="Score" class="text-danger"></span>
+        </div>
+
+        <hr />
+        <h4>Additional Metrics</h4>
+        <p class="text-muted">Fill in your custom metric values below. You can click the button below to pre-populate empty fields from yesterday's reflection.</p>
+
+        <!-- Fill from Yesterday Button -->
+        <button type="button" id="fillYesterdayBtn" class="btn btn-outline-secondary mb-3">
+          <i class="fas fa-history"></i> Fill from Yesterday
+        </button>
+
+        <!-- Container for metric items -->
+        <div id="metricsContainer">
+          @if (Model.Metrics != null && Model.Metrics.Any())
+          {
+            @for (int i = 0; i < Model.Metrics.Count; i++)
+            {
+              var metric = Model.Metrics[i];
+              <div class="metric-item border p-3 mb-3" data-index="@i">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="form-label mb-0">@metric.Name (@metric.Unit)</label>
+                  <button type="button" class="btn btn-sm btn-outline-danger remove-metric">
+                    <i class="fas fa-trash-alt"></i> Remove
+                  </button>
+                </div>
+                @switch (metric.DataType)
+                {
+                  case MetricDataType.Numeric:
+                    <input type="number" step="0.01" class="form-control mb-2"
+                           name="Metrics[@i].UserNumericValue"
+                           value="@(metric.UserNumericValue?.ToString() ?? "")" />
+                    break;
+                  case MetricDataType.Text:
+                    <input type="text" class="form-control mb-2"
+                           name="Metrics[@i].UserTextValue"
+                           value="@metric.UserTextValue" />
+                    break;
+                  case MetricDataType.Boolean:
+                    <div class="form-check form-switch mb-2">
+                      <input type="checkbox" class="form-check-input"
+                             name="Metrics[@i].UserNumericValue" value="1"
+                      @(metric.UserNumericValue.HasValue && metric.UserNumericValue.Value > 0 ? "checked" : "") />
+                      <label class="form-check-label">Yes/No</label>
+                    </div>
+                    break;
+                }
+                <!-- Hidden fields to pass metric metadata -->
+                <input type="hidden" name="Metrics[@i].MetricDefinitionId" value="@metric.MetricDefinitionId" />
+                <input type="hidden" name="Metrics[@i].Name" value="@metric.Name" />
+                <input type="hidden" name="Metrics[@i].Unit" value="@metric.Unit" />
+                <input type="hidden" name="Metrics[@i].DataType" value="@metric.DataType" />
+              </div>
+            }
+          }
+        </div>
+
+        <!-- Button to add a new ephemeral metric -->
+        <button type="button" id="addMetricBtn" class="btn btn-outline-primary mb-3">
+          <i class="fas fa-plus"></i> Add New Metric
+        </button>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Save
+          </button>
+          <a asp-route="@Model.ReturnUrl" class="btn btn-secondary">
+            <i class="fas fa-times-circle"></i> Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (hasReflection)
+  {
+    <div class="text-center">
+      <form asp-action="RemoveReflection" method="post">
+        <input type="hidden" asp-for="HabitId" />
+        <input type="hidden" asp-for="Date" />
+        <input type="hidden" asp-for="ReturnUrl" />
+        <button type="submit" class="btn btn-danger">
+          <i class="fas fa-trash-alt"></i> Delete Reflection
+        </button>
+      </form>
+    </div>
+  }
+</div>
+
+<!-- Hidden Template for New Metric Items -->
+<div id="metricTemplate" style="display: none;">
+  <div class="metric-item border p-3 mb-3" data-index="__INDEX__">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <label class="form-label mb-0">New Metric</label>
+      <button type="button" class="btn btn-sm btn-outline-danger remove-metric">
+        <i class="fas fa-trash-alt"></i> Remove
+      </button>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Metric Name</label>
+      <input type="text" class="form-control"
+             name="Metrics[__INDEX__].Name"
+             placeholder="e.g., Pushups" />
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Unit</label>
+      <input type="text" class="form-control"
+             name="Metrics[__INDEX__].Unit"
+             placeholder="e.g., reps" />
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Data Type</label>
+      <select class="form-select dataTypeSelect" name="Metrics[__INDEX__].DataType">
+        <option value="Numeric">Numeric</option>
+        <option value="Text">Text</option>
+        <option value="Boolean">Boolean</option>
+      </select>
+    </div>
+    <div class="mb-2 metric-value">
+      <!-- Default numeric input -->
+      <input type="number" step="0.01" class="form-control"
+             name="Metrics[__INDEX__].UserNumericValue"
+             placeholder="Enter value" />
+    </div>
+    <input type="hidden" name="Metrics[__INDEX__].MetricDefinitionId" value="0" />
+  </div>
+</div>
+
+@section Scripts {
+  <script src="~/lib/jquery/dist/jquery.min.js"></script>
+  <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+  <partial name="_ValidationScriptsPartial" />
+  <script>
+    $(function () {
+      // Set initial metric index to current count
+      let metricIndex = @Model.Metrics?.Count() ?? 0;
+
+      // Add new metric when "Add New Metric" button is clicked
+      $('#addMetricBtn').on('click', function () {
+        let templateHtml = $('#metricTemplate').html().replace(/__INDEX__/g, metricIndex);
+        $('#metricsContainer').append(templateHtml);
+        metricIndex++;
+      });
+
+      // Remove metric item when "Remove" button is clicked
+      $('#metricsContainer').on('click', '.remove-metric', function () {
+        $(this).closest('.metric-item').remove();
+      });
+
+      // When DataType is changed, update the input field accordingly
+      $('#metricsContainer').on('change', '.dataTypeSelect', function () {
+        let selected = $(this).val();
+        let $metricItem = $(this).closest('.metric-item');
+        let index = $metricItem.attr('data-index');
+        if (!index) {
+          index = metricIndex - 1;
+        }
+        let $container = $metricItem.find('.metric-value');
+
+        if (selected === 'Numeric') {
+          $container.html(`
+            <input type="number" step="0.01" class="form-control"
+                   name="Metrics[${index}].UserNumericValue"
+                   placeholder="Enter numeric value" />
+          `);
+        } else if (selected === 'Boolean') {
+          $container.html(`
+            <div class="form-check form-switch mb-2">
+              <input type="checkbox" class="form-check-input"
+                     name="Metrics[${index}].UserNumericValue" value="1" />
+              <label class="form-check-label">Yes/No</label>
+            </div>
+          `);
+        } else if (selected === 'Text') {
+          $container.html(`
+            <input type="text" class="form-control"
+                   name="Metrics[${index}].UserTextValue"
+                   placeholder="Enter text" />
+          `);
+        }
+      });
+
+      // Fill from Yesterday button: load previous day's metrics from hidden JSON
+      $('#fillYesterdayBtn').on('click', function () {
+        let previousMetricsJson = $('#previousMetricsJson').val();
+        if (!previousMetricsJson) {
+          alert("No previous data available.");
+          return;
+        }
+        let previousMetrics = JSON.parse(previousMetricsJson);
+        $('#metricsContainer .metric-item').each(function () {
+          let $item = $(this);
+          let defId = $item.find('input[name$=".MetricDefinitionId"]').val();
+          if (defId === "0") return;
+
+          let prevVal = previousMetrics[defId];
+          if (!prevVal) return;
+
+          let dataType = $item.find('input[name$=".DataType"]').val();
+          if (dataType === "Numeric") {
+            let $input = $item.find('input[name$=".UserNumericValue"]');
+            if (!$input.val()) {
+              $input.val(prevVal.UserNumericValue);
+            }
+          } else if (dataType === "Text") {
+            let $input = $item.find('input[name$=".UserTextValue"]');
+            if (!$input.val()) {
+              $input.val(prevVal.UserTextValue);
+            }
+          } else if (dataType === "Boolean") {
+            let $input = $item.find('input[name$=".UserNumericValue"]');
+            if (!$input.prop("checked") && prevVal.UserNumericValue > 0) {
+              $input.prop("checked", true);
+            }
+          }
+        });
+      });
+    });
+  </script>
+}
+
+<!-- Hidden field holding previous day's metrics as JSON.
+     Populate this in your controller (e.g., via ViewBag) or with an Ajax call.
+     For example: -->
+<input type="hidden" id="previousMetricsJson" value='@Html.Raw(ViewBag.PreviousMetricsJson)' />

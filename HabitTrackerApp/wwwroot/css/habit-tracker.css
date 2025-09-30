@@ -1,0 +1,568 @@
+﻿/* habit-tracker.css */
+
+/* Import Poppins font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* CSS Variables (based on WeeklyTableView) */
+:root {
+  --primary: #6366F1;
+  --secondary: #6B7280;
+  --success: #10B981;
+  --info: #0DCAF0;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --light: #F8FAFC;
+  --gray: #6b7280;
+  --text: #1F2937;
+  --background: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --completed-cell-bg: rgba(16, 185, 129, 0.2);
+  --today-column-bg: rgba(99, 102, 241, 0.1);
+  --hover-bg: #f5f5f5;
+  --font-primary: 'Poppins', sans-serif;
+}
+
+body.dark-mode {
+  --primary: #818CF8;
+  --secondary: #9CA3AF;
+  --success: #34D399;
+  --info: #22D3EE;
+  --warning: #FBBF24;
+  --danger: #F87171;
+  --light: #1F2937;
+  --gray: #9ca3af;
+  --text: #E5E7EB;
+  --background: #111827;
+  --card-bg: #1F2937;
+  --completed-cell-bg: rgba(52, 211, 153, 0.2);
+  --today-column-bg: rgba(129, 140, 248, 0.1);
+  --hover-bg: #2d3748;
+}
+
+/* Base Styles */
+body {
+  font-family: var(--font-primary);
+  background-color: var(--background);
+  color: var(--text);
+}
+
+/* Sidebar Styling (from _Layout) */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 260px;
+  background: var(--card-bg);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  z-index: 1000;
+  transition: all 0.3s ease;
+  overflow-y: auto;
+}
+
+.sidebar-collapsed {
+  width: 70px;
+}
+
+.sidebar-header {
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo-full {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-icon {
+  font-size: 1.5rem;
+  color: var(--primary);
+  margin: 0 auto;
+  display: none;
+}
+
+.sidebar-collapsed .logo-full {
+  display: none;
+}
+
+.sidebar-collapsed .logo-icon {
+  display: block;
+}
+
+.sidebar-toggle {
+  background: transparent;
+  border: none;
+  color: var(--gray);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+  .sidebar-toggle:hover {
+    color: var(--text);
+  }
+
+.sidebar-collapsed .sidebar-toggle {
+  margin: 0 auto;
+  padding: 1rem 0;
+}
+
+.nav-section {
+  margin-bottom: 1rem;
+}
+
+.nav-section-title {
+  padding: 0.5rem 1.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gray);
+  font-weight: 500;
+}
+
+.sidebar-collapsed .nav-section-title {
+  display: none;
+}
+
+.nav-item {
+  padding: 0.5rem 1.5rem;
+}
+
+.sidebar-collapsed .nav-item {
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: var(--text) !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+  .nav-link:hover {
+    background-color: var(--light);
+    color: var(--primary) !important;
+  }
+
+  .nav-link.active {
+    background-color: var(--primary);
+    color: var(--light) !important;
+  }
+
+.nav-icon {
+  font-size: 1.25rem;
+  min-width: 1.25rem;
+  text-align: center;
+}
+
+.nav-text {
+  font-size: 0.875rem;
+}
+
+.sidebar-collapsed .nav-text {
+  display: none;
+}
+
+.sidebar-collapsed .nav-link {
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+/* Main Content (from _Layout) */
+.main-content {
+  margin-left: 260px;
+  padding: 1.5rem;
+  transition: margin-left 0.3s ease;
+  min-height: 100vh;
+  background-color: var(--background);
+}
+
+.main-content-expanded {
+  margin-left: 70px;
+}
+
+/* Top Navigation (from _Layout) */
+.top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  background-color: var(--card-bg);
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.top-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.search-form {
+  position: relative;
+}
+
+.search-input {
+  border: 1px solid var(--gray);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem 0.5rem 2.5rem;
+  width: 300px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease;
+  color: var(--text);
+  background-color: var(--card-bg);
+}
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--today-column-bg);
+  }
+
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray);
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: var(--light);
+}
+
+  .btn-primary:hover {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    filter: brightness(0.9);
+  }
+
+/* Habit Card (unified from .weekly-card and .dayview-card) */
+.habit-card {
+  margin: 20px auto;
+  border: 1px solid var(--gray);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  background-color: var(--card-bg);
+  margin-left: 60px;
+  margin-right: 60px;
+}
+
+/* Habit Header (unified from .weekly-card-header and .dayview-header) */
+.habit-header {
+  background-color: var(--primary);
+  color: var(--light);
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+  .habit-header h4 {
+    margin: 0;
+  }
+
+  .habit-header .btn {
+    margin: 0 5px;
+  }
+
+/* Habit Table (unified from .weekly-table and .dayview-table) */
+.habit-table {
+  width: 100%;
+  color: var(--text);
+  border-collapse: collapse;
+}
+
+  .habit-table th, .habit-table td {
+    vertical-align: middle;
+    text-align: center;
+    padding: 0.75rem;
+    border: none;
+    border-bottom: 1px solid var(--gray);
+  }
+
+  .habit-table thead th {
+    background-color: var(--primary);
+    color: var(--light);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .habit-table tbody tr:hover td:not(.inactive-cell) {
+    background-color: var(--hover-bg);
+  }
+
+/* Common Table Cell Styles (from WeeklyTableView) */
+.completed-cell {
+  background-color: var(--completed-cell-bg) !important;
+}
+
+.inactive-cell {
+  background-color: var(--light) !important;
+  color: var(--gray);
+}
+
+.today-column {
+  background-color: var(--today-column-bg);
+}
+
+.habit-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.habit-icon {
+  width: 90px;
+  height: 90px;
+  border-radius: 30%;
+  object-fit: cover;
+}
+
+.fa-question-circle {
+  font-size: 1.8rem;
+  color: var(--gray);
+}
+
+.reflection-link {
+  margin-top: 6px;
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--gray);
+  text-decoration: underline;
+}
+
+  .reflection-link:hover {
+    color: var(--text);
+  }
+
+.progress {
+  width: 200px;
+  display: inline-block;
+  background-color: var(--light);
+  vertical-align: middle;
+}
+
+.progress-bar {
+  background-color: var(--success);
+}
+
+.gap-row {
+  background-color: var(--background);
+  color: var(--gray);
+  font-style: italic;
+}
+
+.done-message {
+  display: none;
+  color: var(--success);
+  font-weight: bold;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+.all-done-message {
+  display: none;
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 1.2rem;
+  color: var(--success);
+  font-weight: bold;
+}
+
+/* DayView Specific Styles */
+.dayview-progress {
+  margin: 20px auto;
+  max-width: 900px;
+  padding: 0 1rem;
+}
+
+#progress-percentage {
+  display: inline-block;
+  margin-left: 10px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ongoing-habit {
+  background-color: #f0f8ff;
+  border-left: 5px solid #1e90ff;
+}
+
+  .ongoing-habit td {
+    color: #1e90ff;
+  }
+
+/* Footer (from _Layout) */
+.footer {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--gray);
+  font-size: 0.875rem;
+  margin-top: 2rem;
+}
+
+/* Utility Classes (from _Layout) */
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--card-bg);
+}
+
+.user-dropdown {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+}
+
+  .user-dropdown:hover {
+    background-color: var(--light);
+  }
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Responsive Adjustments (from _Layout) */
+@media (max-width: 992px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar-visible {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  .mobile-menu-toggle {
+    display: block;
+    font-size: 1.5rem;
+    margin-right: 1rem;
+    cursor: pointer;
+    color: var(--text);
+  }
+
+  .habit-card-body {
+    padding: 1rem;
+  }
+
+
+}
+
+/* STATISTICS VIEW - Extra Classes */
+
+/* Container card for Statistics */
+.statistics-card {
+  margin-bottom: 20px;
+  /* Reusing .habit-card structure, so just small tweaks here if you wish */
+}
+
+/* Header for the Statistics card */
+.statistics-header {
+  background-color: var(--primary);
+  padding: 1rem 1.5rem;
+  /* A slightly different style than the weekly header if desired */
+}
+
+/* Main body area for stats */
+.statistics-body {
+  padding: 1.5rem;
+}
+
+/* Form used for Weeks/Months filtering */
+.stats-filter-form .form-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--gray);
+}
+
+/* A simple grid row for stat boxes */
+.stats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem; /* spacing between boxes */
+}
+
+/* Individual statistic box with icon and text */
+.stat-box {
+  background-color: var(--card-bg);
+  border: 1px solid var(--gray);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 100%;
+}
+
+.stat-box-icon {
+  font-size: 2rem;
+  /* can add e.g. width: 48px; text-align: center; if you want alignment */
+}
+
+.stat-box-content {
+  text-align: left;
+}
+
+.stat-box-content h5 {
+  margin: 0 0 4px 0;
+  font-weight: 600;
+}
+
+.stat-box-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+/* Extra card styling for the charts/tables in this view */
+.stats-chart-card,
+.stats-table-card {
+  border: 1px solid var(--gray);
+  border-radius: 0.5rem;
+}
+
+
+@media (min-width: 993px) {
+  .mobile-menu-toggle {
+    display: none;
+  }
+}

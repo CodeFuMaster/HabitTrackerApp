@@ -1,0 +1,16 @@
+﻿@{
+    ViewData["Title"] = "Habit Tracker";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Habit Tracker</h1>
+    <p class="lead">Track your daily habits and build better routines</p>
+    <div class="mt-4">
+        <a href="@Url.Action("Index", "Habit")" class="btn btn-primary btn-lg me-3">View Habits</a>
+        <a href="@Url.Action("Create", "Habit")" class="btn btn-outline-primary btn-lg">Add New Habit</a>
+    </div>
+    <div class="mt-4">
+        <a href="@Url.Action("Index", "Statistics")" class="btn btn-secondary me-2">Statistics</a>
+        <a href="@Url.Action("Index", "Category")" class="btn btn-secondary">Categories</a>
+    </div>
+</div>

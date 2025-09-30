@@ -1,0 +1,199 @@
+﻿@model HabitTrackerApp.Models.Habit
+@using Microsoft.AspNetCore.Mvc.Rendering
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+@{
+  ViewData["Title"] = "Edit Habit";
+
+  var recurrenceItems = new List<SelectListItem>
+  {
+      new SelectListItem { Value = "Daily",   Text = "Daily",   Selected = (Model.RecurrenceType == HabitTrackerApp.Models.RecurrenceType.Daily) },
+      new SelectListItem { Value = "Weekly",  Text = "Weekly",  Selected = (Model.RecurrenceType == HabitTrackerApp.Models.RecurrenceType.Weekly) },
+      new SelectListItem { Value = "Monthly", Text = "Monthly", Selected = (Model.RecurrenceType == HabitTrackerApp.Models.RecurrenceType.Monthly) },
+      new SelectListItem { Value = "OneTime", Text = "One-Time",Selected = (Model.RecurrenceType == HabitTrackerApp.Models.RecurrenceType.OneTime) },
+  };
+
+  var existingWeekly = (Model.WeeklyDays ?? "").Split(',')
+                           .Select(d => d.Trim())
+                           .Where(d => !string.IsNullOrWhiteSpace(d))
+                           .ToList();
+  var existingMonthly = (Model.MonthlyDays ?? "").Split(',')
+                            .Select(d => d.Trim())
+                            .Where(d => !string.IsNullOrWhiteSpace(d))
+                            .ToList();
+}
+
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow-lg">
+        <!-- Card Header -->
+        <div class="card-header bg-primary text-white text-center">
+          <h2 class="mb-0">Edit Habit</h2>
+        </div>
+        <!-- Card Body -->
+        <div class="card-body">
+          <form asp-action="Edit" method="post">
+            <input type="hidden" asp-for="Id" />
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <!-- Basic Information -->
+            <div class="mb-4">
+              <label asp-for="Name" class="form-label fw-bold"></label>
+              <input asp-for="Name" class="form-control" placeholder="Enter habit name" />
+              <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="mb-4">
+              <label asp-for="ShortDescription" class="form-label fw-bold"></label>
+              <input asp-for="ShortDescription" class="form-control" placeholder="Enter a short summary" />
+              <span asp-validation-for="ShortDescription" class="text-danger"></span>
+            </div>
+            <div class="mb-4">
+              <label asp-for="Description" class="form-label fw-bold"></label>
+              <textarea asp-for="Description" class="form-control" placeholder="Enter full description" rows="5"></textarea>
+              <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+            <!-- Time Details -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <label asp-for="TimeOfDay" class="form-label fw-bold">Time of Day</label>
+                <input asp-for="TimeOfDay" type="time" class="form-control" />
+                <span asp-validation-for="TimeOfDay" class="text-danger"></span>
+              </div>
+              <div class="col-md-6">
+                <label asp-for="TimeOfDayEnd" class="form-label fw-bold">Time of Day End</label>
+                <input asp-for="TimeOfDayEnd" type="time" class="form-control" />
+                <span asp-validation-for="TimeOfDayEnd" class="text-danger"></span>
+              </div>
+            </div>
+            <!-- Recurrence Type -->
+            <div class="mb-4">
+              <label asp-for="RecurrenceType" class="form-label fw-bold">Recurrence Type</label>
+              <select asp-for="RecurrenceType" asp-items="recurrenceItems" class="form-control" id="recurrenceSelect">
+              </select>
+            </div>
+            <!-- Weekly Days -->
+            <div class="mb-4" id="weeklyDaysGroup">
+              <label class="form-label fw-bold">Pick Weekly Days</label>
+              @foreach (var day in new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" })
+              {
+                bool isChecked = existingWeekly.Contains(day);
+                <div class="form-check">
+                  <input class="form-check-input weeklyCheck" type="checkbox" value="@day" @(isChecked ? "checked" : "") />
+                  <label class="form-check-label">@day</label>
+                </div>
+              }
+              <input asp-for="WeeklyDays" type="hidden" id="weeklyDaysInput" />
+            </div>
+            <!-- Monthly Days -->
+            <div class="mb-4" id="monthlyDaysGroup">
+              <label class="form-label fw-bold">Pick Monthly Days</label>
+              @for (int i = 1; i <= 31; i++)
+              {
+                bool isChecked = existingMonthly.Contains(i.ToString());
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input monthlyCheck" type="checkbox" value="@i" @(isChecked ? "checked" : "") />
+                  <label class="form-check-label">@i</label>
+                </div>
+              }
+              <input asp-for="MonthlyDays" type="hidden" id="monthlyDaysInput" />
+            </div>
+            <!-- Specific Date -->
+            <div class="mb-4" id="specificDateGroup">
+              <label asp-for="SpecificDate" class="form-label fw-bold">Specific Date</label>
+              <input asp-for="SpecificDate" class="form-control" type="date" />
+              <span asp-validation-for="SpecificDate" class="text-danger"></span>
+            </div>
+            <!-- Category & Tags -->
+            <div class="mb-4">
+              <label class="form-label fw-bold" for="CategoryId">Category</label>
+              <select asp-for="CategoryId" class="form-control" asp-items="@ViewBag.CategoryOptions">
+                <option value="">-- Select a category --</option>
+              </select>
+              <span asp-validation-for="CategoryId" class="text-danger"></span>
+            </div>
+            <div class="mb-4">
+              <label asp-for="Tags" class="form-label fw-bold">Tags (comma-separated)</label>
+              <input asp-for="Tags" class="form-control" placeholder="e.g. cardio,sport" />
+              <span asp-validation-for="Tags" class="text-danger"></span>
+            </div>
+            <!-- Image URL -->
+            <div class="mb-4">
+              <label asp-for="ImageUrl" class="form-label fw-bold">Image URL</label>
+              <input asp-for="ImageUrl" class="form-control" placeholder="Enter image URL" />
+              <span asp-validation-for="ImageUrl" class="text-danger"></span>
+            </div>
+            <!-- Delete/Restore Toggle -->
+            <div class="form-check form-switch mb-4">
+              <input class="form-check-input" type="checkbox" id="IsDeleted" name="IsDeleted" 
+                     value="true" @(Model.IsDeleted ? "" : "checked") />
+              <input type="hidden" name="IsDeleted" value="false" />
+              <label class="form-check-label" for="IsDeleted">
+                Active Habit
+              </label>
+            </div>
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between">
+              <div>
+                <button type="submit" class="btn btn-primary me-2">
+                  <i class="fas fa-save"></i> Save Changes
+                </button>
+                <a asp-action="Index" class="btn btn-secondary">
+                  <i class="fas fa-times"></i> Cancel
+                </a>
+              </div>
+              <div>
+                <a asp-controller="HabitMetricDefinition" asp-action="Index" asp-route-habitId="@Model.Id" class="btn btn-outline-primary">
+                  <i class="fas fa-sliders-h"></i> Manage Metrics
+                </a>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+  @{
+    await Html.RenderPartialAsync("_ValidationScriptsPartial");
+  }
+  <script>
+    const recurrenceSelect = document.getElementById('recurrenceSelect');
+    const weeklyDaysGroup = document.getElementById('weeklyDaysGroup');
+    const monthlyDaysGroup = document.getElementById('monthlyDaysGroup');
+    const specificDateGroup = document.getElementById('specificDateGroup');
+
+    function updateRecurrenceUI() {
+      const type = recurrenceSelect.value;
+      weeklyDaysGroup.style.display = (type === 'Weekly') ? 'block' : 'none';
+      monthlyDaysGroup.style.display = (type === 'Monthly') ? 'block' : 'none';
+      specificDateGroup.style.display = (type === 'OneTime') ? 'block' : 'none';
+    }
+    recurrenceSelect.addEventListener('change', updateRecurrenceUI);
+    updateRecurrenceUI(); // initial update
+
+    // Weekly days update
+    const weeklyCheckEls = document.querySelectorAll('.weeklyCheck');
+    const weeklyDaysInput = document.getElementById('weeklyDaysInput');
+    weeklyCheckEls.forEach(chk => {
+      chk.addEventListener('change', () => {
+        const selected = [];
+        weeklyCheckEls.forEach(c => { if (c.checked) selected.push(c.value); });
+        weeklyDaysInput.value = selected.join(',');
+      });
+    });
+
+    // Monthly days update
+    const monthlyCheckEls = document.querySelectorAll('.monthlyCheck');
+    const monthlyDaysInput = document.getElementById('monthlyDaysInput');
+    monthlyCheckEls.forEach(chk => {
+      chk.addEventListener('change', () => {
+        const selected = [];
+        monthlyCheckEls.forEach(c => { if (c.checked) selected.push(c.value); });
+        monthlyDaysInput.value = selected.join(',');
+      });
+    });
+    updateRecurrenceUI();
+  </script>
+}

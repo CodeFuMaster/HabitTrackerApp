@@ -1,0 +1,937 @@
+﻿@model IEnumerable<HabitTrackerApp.Models.Habit>
+@using System.Globalization
+
+@{
+  // Get the Monday for this week from ViewBag, default to today's week if missing.
+  DateTime weekStart = ViewBag.WeekStart ?? DateTime.Today;
+  // Create an array of the 7 days.
+  var days = Enumerable.Range(0, 7).Select(i => weekStart.AddDays(i)).ToList();
+
+  // Prepare the week picker value in "yyyy-Www" format.
+  var weekNumber = ISOWeek.GetWeekOfYear(weekStart).ToString("D2");
+  var weekValue = $"{weekStart:yyyy}-W{weekNumber}";
+
+  // Previous/Next week values.
+  var prevWeek = weekStart.AddDays(-7);
+  var nextWeek = weekStart.AddDays(7);
+  var prevWeekValue = $"{prevWeek:yyyy}-W{ISOWeek.GetWeekOfYear(prevWeek):D2}";
+  var nextWeekValue = $"{nextWeek:yyyy}-W{ISOWeek.GetWeekOfYear(nextWeek):D2}";
+
+  // "Today" logic.
+  var today = DateTime.Today;
+  int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
+  var todayWeekStart = today.AddDays(-diff);
+  var todayWeekValue = $"{todayWeekStart:yyyy}-W{ISOWeek.GetWeekOfYear(todayWeekStart):D2}";
+
+  // Habits should be already sorted in the controller.
+  var sortedHabits = Model.ToList();
+
+  // Get insights
+  int totalHabits = sortedHabits.Count;
+  int totalCompletions = 0;
+  int totalPossibleCompletions = 0;
+
+  foreach (var habit in sortedHabits)
+  {
+    foreach (var day in days)
+    {
+      if (habit.OccursOn(day.Date))
+      {
+        totalPossibleCompletions++;
+        if (habit.DailyHabitEntries?.Any(e => e.Date == day.Date && e.IsCompleted) ?? false)
+        {
+          totalCompletions++;
+        }
+      }
+    }
+  }
+
+  double completionRate = totalPossibleCompletions > 0 ? Math.Round((double)totalCompletions / totalPossibleCompletions * 100, 1) : 0;
+
+  // To display gap rows between habits.
+  HabitTrackerApp.Models.Habit previousHabit = null;
+
+  // Set ViewData title for the layout
+  ViewData["Title"] = "Weekly Habit Tracker";
+}
+
+@section Scripts {
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Create the completion rate chart
+      const ctx = document.getElementById('completionChart').getContext('2d');
+      const chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Completed', 'Incomplete'],
+          datasets: [{
+            data: [@totalCompletions, @(totalPossibleCompletions - totalCompletions)],
+            backgroundColor: ['#10B981', '#E5E7EB'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          cutout: '75%',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = Math.round((value / total) * 100);
+                  return `${label}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Toggle a habit's completion status via AJAX.
+      async function toggleCompletedAjax(checkbox) {
+        const habitId = checkbox.dataset.habitid;
+        const date = checkbox.dataset.date;
+        const payload = { HabitId: parseInt(habitId), Date: date };
+        const card = checkbox.closest('.habit-card');
+
+        try {
+          const response = await fetch('/Habit/ToggleCompletedAjax', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            checkbox.checked = !checkbox.checked;
+            showToast("Error toggling habit (status " + response.status + ")");
+            return;
+          }
+
+          const data = await response.json();
+
+          if (!data.success) {
+            checkbox.checked = !checkbox.checked;
+            showToast("Server error: " + data.message);
+          } else {
+            // Update the checkbox status
+            if (data.isCompleted) {
+              checkbox.closest('.day-checkbox').classList.add('completed');
+            } else {
+              checkbox.closest('.day-checkbox').classList.remove('completed');
+            }
+
+            // Update the progress in the card
+            if (card) {
+              const progressBar = card.querySelector('.progress-bar');
+              const progressText = card.querySelector('.progress-text');
+              const checkboxes = card.querySelectorAll('input[type="checkbox"]');
+
+              let totalDays = 0;
+              let completedCount = 0;
+
+              checkboxes.forEach(cb => {
+                if (!cb.closest('.day-checkbox').classList.contains('inactive')) {
+                  totalDays++;
+                  if (cb.checked) completedCount++;
+                }
+              });
+
+              let percent = (totalDays === 0) ? 0 : (completedCount * 100.0 / totalDays);
+              progressBar.style.width = percent + '%';
+              progressText.textContent = Math.round(percent) + '% Complete';
+
+              // Update the total counter in the summary card
+              updateSummaryStats();
+            }
+          }
+        } catch (err) {
+          checkbox.checked = !checkbox.checked;
+          showToast("Network error: " + err);
+        }
+      }
+
+      // Attach the toggle function to all checkboxes
+      document.querySelectorAll('input[type="checkbox"].habit-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+          toggleCompletedAjax(this);
+        });
+      });
+
+      // Function to update the summary statistics
+      function updateSummaryStats() {
+        let totalCompletions = 0;
+        let totalPossibleCompletions = 0;
+
+        document.querySelectorAll('.habit-card').forEach(card => {
+          const checkboxes = card.querySelectorAll('input[type="checkbox"]');
+
+          checkboxes.forEach(cb => {
+            if (!cb.closest('.day-checkbox').classList.contains('inactive')) {
+              totalPossibleCompletions++;
+              if (cb.checked) totalCompletions++;
+            }
+          });
+        });
+
+        const completionRate = totalPossibleCompletions > 0 ?
+          (totalCompletions / totalPossibleCompletions * 100).toFixed(1) : 0;
+
+        document.getElementById('completionRate').textContent = completionRate + '%';
+        document.getElementById('completedHabits').textContent = totalCompletions;
+        document.getElementById('totalHabits').textContent = totalPossibleCompletions;
+
+        // Update chart
+        chart.data.datasets[0].data = [totalCompletions, totalPossibleCompletions - totalCompletions];
+        chart.update();
+      }
+
+      // Toast notification function
+      function showToast(message) {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = 'toast show';
+        toast.innerHTML = `
+          <div class="toast-header">
+            <strong class="me-auto">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+          </div>
+          <div class="toast-body">${message}</div>
+        `;
+        toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+          toast.classList.add('hide');
+          setTimeout(() => {
+            toast.remove();
+          }, 300);
+        }, 3000);
+      }
+
+      // Confirmation for reflection delete
+      window.confirmReflectionDelete = function() {
+        return confirm("Are you sure you want to delete this reflection?");
+      };
+    });
+  </script>
+}
+
+@section Styles {
+  <style>
+    /* Weekly view styles */
+    .week-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0;
+      margin-bottom: 1.5rem;
+    }
+
+    .week-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .week-nav-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: white;
+      color: var(--dark);
+      border: 1px solid #E5E7EB;
+      transition: all 0.2s ease;
+    }
+
+      .week-nav-btn:hover {
+        background-color: var(--primary-light);
+        color: white;
+        border-color: var(--primary-light);
+      }
+
+    .week-selector {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+    }
+
+    .week-date {
+      font-weight: 600;
+      font-size: 1.25rem;
+    }
+
+    .week-picker {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .week-picker-input {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #E5E7EB;
+      border-radius: 0.5rem;
+      background-color: white;
+    }
+
+      .week-picker-input:focus {
+        outline: none;
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+      }
+
+    .today-btn {
+      padding: 0.5rem 1rem;
+      background-color: var(--light);
+      border: 1px solid #E5E7EB;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: var(--dark);
+      transition: all 0.2s ease;
+    }
+
+      .today-btn:hover {
+        background-color: var(--gray);
+        color: white;
+      }
+
+    /* Dashboard Cards */
+    .dashboard-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .summary-card {
+      flex: 1;
+      min-width: 300px;
+      background-color: white;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .summary-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-card-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--dark);
+      margin: 0;
+    }
+
+    .chart-container {
+      height: 200px;
+      position: relative;
+    }
+
+    .chart-center-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .completion-rate {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--dark);
+      line-height: 1.2;
+    }
+
+    .completion-label {
+      font-size: 0.875rem;
+      color: var(--gray);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 1rem;
+      background-color: #F9FAFB;
+      border-radius: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--dark);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--gray);
+    }
+
+    /* Day columns */
+    .days-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .day-column {
+      text-align: center;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+    }
+
+    .day-name {
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .day-date {
+      font-size: 0.75rem;
+      color: var(--gray);
+    }
+
+    .today-column {
+      background-color: #ECFDF5;
+    }
+
+      .today-column .day-name {
+        color: var(--secondary);
+      }
+
+    /* Habit Cards */
+    .habits-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .habit-card {
+      background-color: white;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .habit-card-header {
+      padding: 1.25rem;
+      border-bottom: 1px solid #F3F4F6;
+    }
+
+    .habit-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .habit-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .habit-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: white;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      overflow: hidden;
+    }
+
+      .habit-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+    .habit-title {
+      font-weight: 600;
+      font-size: 1.125rem;
+      margin: 0 0 0.25rem;
+    }
+
+    .habit-description {
+      color: var(--gray);
+      font-size: 0.875rem;
+      margin: 0;
+    }
+
+    .habit-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .habit-action-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.5rem;
+      color: var(--gray);
+      background-color: #F9FAFB;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+      .habit-action-btn:hover {
+        background-color: #F3F4F6;
+        color: var(--dark);
+      }
+
+    .habit-category {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background-color: #F3F4F6;
+      border-radius: 1rem;
+      color: var(--gray);
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .habit-time {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--gray);
+      font-size: 0.875rem;
+      margin-top: 0.5rem;
+    }
+
+      .habit-time i {
+        font-size: 0.75rem;
+      }
+
+    .habit-card-body {
+      padding: 1.25rem;
+    }
+
+    .habit-progress {
+      margin-bottom: 1.5rem;
+    }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+      .progress-text span {
+        font-size: 0.875rem;
+        color: var(--dark);
+        font-weight: 500;
+      }
+
+    .progress {
+      height: 8px;
+      background-color: #F3F4F6;
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      background-color: var(--secondary);
+      border-radius: 0.5rem;
+      transition: width 0.3s ease;
+    }
+
+    .day-checkboxes {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.5rem;
+    }
+
+    .day-checkbox {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.75rem 0.5rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+
+      .day-checkbox:hover {
+        background-color: #F9FAFB;
+      }
+
+      .day-checkbox.completed {
+        background-color: #ECFDF5;
+      }
+
+      .day-checkbox.inactive {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .day-checkbox label {
+        cursor: pointer;
+        text-align: center;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+        color: var(--gray);
+      }
+
+    .inactive .day-checkbox label {
+      cursor: not-allowed;
+    }
+
+    .habit-checkbox {
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border: 2px solid #E5E7EB;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+      .habit-checkbox:checked {
+        background-color: var(--secondary);
+        border-color: var(--secondary);
+      }
+
+        .habit-checkbox:checked::after {
+          content: '✓';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 0.875rem;
+        }
+
+    .inactive .habit-checkbox {
+      cursor: not-allowed;
+    }
+
+    .reflection-link {
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--primary);
+      text-decoration: none;
+      text-align: center;
+      display: block;
+    }
+
+      .reflection-link:hover {
+        text-decoration: underline;
+      }
+
+    /* Toast notifications */
+    #toastContainer {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+    }
+
+    .toast {
+      min-width: 300px;
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1rem;
+      transition: all 0.3s ease;
+      opacity: 1;
+    }
+
+      .toast.hide {
+        opacity: 0;
+        transform: translateX(50px);
+      }
+
+    /* Category colors */
+    .category-physical {
+      background-color: #EF4444;
+    }
+
+    .category-mental {
+      background-color: #8B5CF6;
+    }
+
+    .category-work {
+      background-color: #3B82F6;
+    }
+
+    .category-social {
+      background-color: #F59E0B;
+    }
+
+    .category-health {
+      background-color: #10B981;
+    }
+
+    /* Responsive adjustments */
+    @@media (max-width: 768px) {
+      .days-header {
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.25rem;
+      }
+
+      .day-name {
+        font-size: 0.75rem;
+      }
+
+      .day-date {
+        font-size: 0.7rem;
+      }
+
+      .day-checkboxes {
+        gap: 0.25rem;
+      }
+
+      .day-checkbox {
+        padding: 0.5rem 0.25rem;
+      }
+
+      .habit-checkbox {
+        width: 18px;
+        height: 18px;
+      }
+    }
+  </style>
+}
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<!-- Week Navigation & Selector -->
+<div class="week-header">
+  <div class="week-nav">
+    <a href="@Url.Action("WeeklyTableView", new { weekStart = prevWeekValue })" class="week-nav-btn">
+      <i class="fas fa-chevron-left"></i>
+    </a>
+    <div class="week-selector">
+      <div class="week-date">
+        @weekStart.ToString("MMM dd") - @weekStart.AddDays(6).ToString("MMM dd, yyyy")
+      </div>
+    </div>
+    <a href="@Url.Action("WeeklyTableView", new { weekStart = nextWeekValue })" class="week-nav-btn">
+      <i class="fas fa-chevron-right"></i>
+    </a>
+  </div>
+
+  <div class="week-picker">
+    <a href="@Url.Action("WeeklyTableView", new { weekStart = todayWeekValue })" class="today-btn">
+      Today
+    </a>
+    <form method="get" asp-action="WeeklyTableView" class="d-flex align-items-center">
+      <input type="week" name="weekStart" class="week-picker-input" value="@weekValue" />
+      <button type="submit" class="btn btn-sm btn-primary">Go</button>
+    </form>
+  </div>
+</div>
+
+<!-- Summary Dashboard -->
+<div class="dashboard-row">
+  <div class="summary-card">
+    <div class="summary-card-header">
+      <h5 class="summary-card-title">Weekly Progress</h5>
+      <div class="badge bg-primary">Week @weekNumber</div>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="completionChart"></canvas>
+      <div class="chart-center-text">
+        <div class="completion-rate" id="completionRate">@completionRate%</div>
+        <div class="completion-label">Completion</div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-value" id="completedHabits">@totalCompletions</div>
+        <div class="stat-label">Completed</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="totalHabits">@totalPossibleCompletions</div>
+        <div class="stat-label">Total Tasks</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">@sortedHabits.Count</div>
+        <div class="stat-label">Habits</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Days Header -->
+<div class="days-header">
+  @foreach (var day in days)
+  {
+    var isToday = (day.Date == DateTime.Today.Date);
+    <div class="day-column @(isToday ? "today-column" : "")">
+      <div class="day-name">@day.ToString("ddd")</div>
+      <div class="day-date">@day.ToString("MM/dd")</div>
+    </div>
+  }
+</div>
+
+<!-- Habits Grid -->
+<div class="habits-container">
+  @foreach (var habit in sortedHabits)
+  {
+    // Calculate progress for this habit over the week.
+    int completedCount = 0;
+    int totalDays = 0;
+
+    for (int i = 0; i < 7; i++)
+    {
+      var date = weekStart.AddDays(i).Date;
+      if (habit.OccursOn(date))
+      {
+        totalDays++;
+        bool done = habit.DailyHabitEntries?.Any(e => e.Date == date && e.IsCompleted) ?? false;
+        if (done) completedCount++;
+      }
+    }
+
+    double progressPercent = (totalDays == 0) ? 0 : (completedCount * 100.0 / totalDays);
+
+    // Determine icon color based on category
+    string categoryColorClass = habit.Category != null ? $"category-{habit.Category.Name.ToLower()}" : "";
+    if (string.IsNullOrEmpty(categoryColorClass))
+    {
+      categoryColorClass = "bg-primary";
+    }
+
+    <div class="habit-card">
+      <div class="habit-card-header">
+        <div class="habit-top-row">
+          <div class="habit-info">
+            <div class="habit-icon @categoryColorClass">
+              @if (!string.IsNullOrEmpty(habit.ImageUrl))
+              {
+                <img src="@habit.ImageUrl" alt="@habit.Name" />
+              }
+              else
+              {
+                <i class="fas fa-bolt"></i>
+              }
+            </div>
+            <div>
+              <h5 class="habit-title">@habit.Name</h5>
+              <p class="habit-description">@habit.ShortDescription</p>
+            </div>
+          </div>
+          <div class="habit-actions">
+            <a asp-action="Details" asp-route-id="@habit.Id" class="habit-action-btn" title="Details">
+              <i class="fas fa-info"></i>
+            </a>
+            <a asp-controller="Statistics" asp-action="Statistics" asp-route-habitId="@habit.Id" class="habit-action-btn" title="Statistics">
+              <i class="fas fa-chart-simple"></i>
+            </a>
+            <a asp-action="Edit" asp-route-id="@habit.Id" class="habit-action-btn" title="Edit">
+              <i class="fas fa-edit"></i>
+            </a>
+            <a asp-action="Delete" asp-route-id="@habit.Id" class="habit-action-btn" title="Delete">
+              <i class="fas fa-trash"></i>
+            </a>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="habit-category">
+            @(habit.Category?.Name ?? "No Category")
+          </div>
+          @if (habit.TimeOfDay.HasValue)
+          {
+            var start = DateTime.Today.Add(habit.TimeOfDay.Value);
+
+            <div class="habit-time">
+              <i class="far fa-clock"></i>
+              @start.ToString("hh:mm tt")
+
+              @if (habit.TimeOfDayEnd.HasValue)
+              {
+                var end = DateTime.Today.Add(habit.TimeOfDayEnd.Value);
+                <span>- @end.ToString("hh:mm tt")</span>
+              }
+            </div>
+          }
+
+        </div>
+      </div>
+
+      <div class="habit-card-body">
+        <div class="habit-progress">
+          <div class="progress-text">
+            <span>Progress</span>
+            <span class="progress-text">@Math.Round(progressPercent)% Complete</span>
+          </div>
+          <div class="progress">
+            <div class="progress-bar" style="width: @progressPercent%"></div>
+          </div>
+        </div>
+
+        <div class="day-checkboxes">
+          @foreach (var day in days)
+          {
+            var isToday = (day.Date == DateTime.Today.Date);
+            if (habit.OccursOn(day))
+            {
+              bool isCompleted = habit.DailyHabitEntries?
+              .Any(e => e.Date == day.Date && e.IsCompleted) ?? false;
+
+              <div class="day-checkbox @(isCompleted ? "completed" : "") @(isToday ? "today-column" : "")">
+                <input type="checkbox"
+                       class="habit-checkbox"
+                       data-habitid="@habit.Id"
+                       data-date="@day.ToString("yyyy-MM-dd")"
+                @(isCompleted ? "checked" : "") />
+                <label>@day.ToString("ddd")</label>
+                <a asp-action="AddReflection"
+                   asp-route-habitId="@habit.Id"
+                   asp-route-date="@day.ToString("yyyy-MM-dd")"
+                   asp-route-returnUrl="@Url.Action("WeeklyTableView", new { weekStart = weekStart.ToString("yyyy-'W'ww") })"
+                   class="reflection-link">
+                  <i class="fas fa-pen-to-square"></i>
+                </a>
+              </div>
+            }
+            else
+            {
+              <div class="day-checkbox inactive @(isToday ? "today-column" : "")">
+                <i class="fas fa-ban" style="width: 22px; height: 22px; color: #E5E7EB;"></i>
+                <label>@day.ToString("ddd")</label>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

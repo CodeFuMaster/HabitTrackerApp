@@ -1,0 +1,112 @@
+		Morning Routine	
+6:00	6:10	Hydrate + Grounding + Natural	FALSE
+6:10	6:25	Breathwork (Wim Hof Method)	FALSE
+6:25	6:40	Meditation	FALSE
+		Cold Shower	FALSE
+		Warm up	FALSE
+		ATG	FALSE
+		Jumping rope	FALSE
+		george st pierre Rushfit	FALSE
+		Heigh Kiks	FALSE
+		Cool Down + Gratitude Stretch	FALSE
+			
+		Afternoon routine	
+		Martial Art	FALSE
+			
+Column 1	Column 2	Tuesday	Column 3
+		Morning Routine	
+6:00	6:10	Hydrate + Grounding + Natural	FALSE
+6:10	6:25	Breathwork (Wim Hof Method)	FALSE
+6:25	6:40	Meditation	FALSE
+		Cold Shower	FALSE
+		Warm up	FALSE
+		ATG	FALSE
+		Jumping rope	FALSE
+		george st pierre Rushfit	FALSE
+		Heigh Kiks	FALSE
+		Cool Down + Gratitude Stretch	FALSE
+			
+		Afternoon routine	
+		Gym 1	FALSE
+			
+			
+Column 1	Column 2	Wednesday	Column 3
+		Morning Routine	
+6:00	6:10	Hydrate + Grounding + Natural	FALSE
+6:10	6:25	Breathwork (Wim Hof Method)	FALSE
+6:25	6:40	Meditation	FALSE
+		Cold Shower	FALSE
+		Warm up	FALSE
+		ATG	FALSE
+		Jumping rope	FALSE
+		george st pierre Rushfit	FALSE
+		Heigh Kiks	FALSE
+		Cool Down + Gratitude Stretch	FALSE
+			
+		Afternoon routine	
+		Martial Art	FALSE
+			
+Column 1	Column 2	Thursday	Column 3
+		Morning Routine	
+6:00	6:10	Hydrate + Grounding + Natural	FALSE
+6:10	6:25	Breathwork (Wim Hof Method)	FALSE
+6:25	6:40	Meditation	FALSE
+		Cold Shower	FALSE
+		Warm up	FALSE
+		ATG	FALSE
+		Jumping rope	FALSE
+		george st pierre Rushfit	FALSE
+		Heigh Kiks	FALSE
+		Cool Down + Gratitude Stretch	FALSE
+			
+		Afternoon routine	
+		Gym 2	FALSE
+			
+Column 1	Column 2	Friday	Column 3
+		Morning Routine	
+6:00	6:10	Hydrate + Grounding + Natural	FALSE
+6:10	6:25	Breathwork (Wim Hof Method)	FALSE
+6:25	6:40	Meditation	FALSE
+		Cold Shower	FALSE
+		Warm up	FALSE
+		ATG	FALSE
+		Jumping rope	FALSE
+		george st pierre Rushfit	FALSE
+		Heigh Kiks	FALSE
+		Cool Down + Gratitude Stretch	FALSE
+			
+		Afternoon routine	
+		Martial Art	FALSE
+			
+			
+Column 1	Column 2	Saturday	Column 3
+		Morning Routine	
+6:00	6:10	Hydrate + Grounding + Natural	FALSE
+6:10	6:25	Breathwork (Wim Hof Method)	FALSE
+6:25	6:40	Meditation	FALSE
+		Cold Shower	FALSE
+		Warm up	FALSE
+		ATG	FALSE
+		Jumping rope	FALSE
+		george st pierre Rushfit	FALSE
+		Heigh Kiks	FALSE
+		Cool Down + Gratitude Stretch	FALSE
+			
+		Afternoon routine	
+		Gym 3	FALSE
+			
+			
+Column 1	Column 2	Sunday	Column 3
+		Morning Routine	
+6:00	6:10	Hydrate + Grounding + Natural	FALSE
+6:10	6:25	Breathwork (Wim Hof Method)	FALSE
+6:25	6:40	Meditation	FALSE
+		Cold Shower	FALSE
+		Warm up	FALSE
+		ATG	FALSE
+		Jumping rope	FALSE
+		george st pierre Rushfit	FALSE
+		Cool Down + Gratitude Stretch	FALSE
+			
+		Afternoon routine	
+			

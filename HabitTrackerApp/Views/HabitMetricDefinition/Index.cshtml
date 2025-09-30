@@ -1,0 +1,46 @@
+﻿@model IEnumerable<HabitTrackerApp.Models.HabitMetricDefinition>
+
+@{
+  ViewData["Title"] = "Manage Metrics";
+
+  // Passed in via ViewBag
+  var habitName = ViewBag.HabitName as string;
+  var habitId = (int)ViewBag.HabitId;
+}
+
+<h2>Metrics for Habit: @habitName</h2>
+
+<p>
+  <a asp-action="Create" asp-route-habitId="@habitId" class="btn btn-primary">
+    <i class="fas fa-plus"></i> Add New Metric
+  </a>
+</p>
+
+<table class="table table-striped">
+  <thead>
+  <tr>
+    <th>Metric Name</th>
+    <th>Unit</th>
+    <th>Data Type</th>
+    <th>Actions</th>
+  </tr>
+  </thead>
+  <tbody>
+  @foreach (var metric in Model)
+  {
+    <tr>
+      <td>@metric.Name</td>
+      <td>@metric.Unit</td>
+      <td>@metric.DataType</td>
+      <td>
+        <a asp-action="Edit" asp-route-id="@metric.Id" class="btn btn-sm btn-warning">
+          <i class="fas fa-edit"></i>
+        </a>
+        <a asp-action="Delete" asp-route-id="@metric.Id" class="btn btn-sm btn-danger">
+          <i class="fas fa-trash-alt"></i>
+        </a>
+      </td>
+    </tr>
+  }
+  </tbody>
+</table>

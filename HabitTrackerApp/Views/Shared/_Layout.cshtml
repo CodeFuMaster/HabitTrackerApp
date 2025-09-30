@@ -1,0 +1,193 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@ViewData["Title"] - Habitify</title>
+  <!-- Google Fonts - Poppins -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="~/css/habit-tracker.css" />
+  @RenderSection("Styles", required: false)
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="/" class="logo-full text-decoration-none">
+        <i class="fas fa-bolt"></i>
+        <span>Habitify</span>
+      </a>
+      <a href="/" class="logo-icon text-decoration-none">
+        <i class="fas fa-bolt"></i>
+      </a>
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-angle-double-left"></i>
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Dashboard</div>
+      <div class="nav-item">
+        <a href="/" class="nav-link">
+          <span class="nav-icon"><i class="fas fa-home"></i></span>
+          <span class="nav-text">Overview</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Habits</div>
+      <div class="nav-item">
+        <a asp-controller="Habit" asp-action="Index" class="nav-link @(ViewContext.RouteData.Values["Action"].ToString() == "Index" && ViewContext.RouteData.Values["Controller"].ToString() == "Habit" ? "active" : "")">
+          <span class="nav-icon"><i class="fas fa-list-ul"></i></span>
+          <span class="nav-text">All Habits</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a asp-controller="Habit" asp-action="DayView" class="nav-link @(ViewContext.RouteData.Values["Action"].ToString() == "DayView" ? "active" : "")">
+          <span class="nav-icon"><i class="fas fa-calendar-day"></i></span>
+          <span class="nav-text">Daily View</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a asp-controller="Habit" asp-action="WeeklyView" class="nav-link @(ViewContext.RouteData.Values["Action"].ToString() == "WeeklyView" ? "active" : "")">
+          <span class="nav-icon"><i class="fas fa-calendar-week"></i></span>
+          <span class="nav-text">Weekly View</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a asp-controller="Habit" asp-action="WeeklyTableView" class="nav-link @(ViewContext.RouteData.Values["Action"].ToString() == "WeeklyTableView" ? "active" : "")">
+          <span class="nav-icon"><i class="fas fa-table"></i></span>
+          <span class="nav-text">Weekly Table</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Organize</div>
+      <div class="nav-item">
+        <a asp-controller="Category" asp-action="Index" class="nav-link @(ViewContext.RouteData.Values["Action"].ToString() == "Index" && ViewContext.RouteData.Values["Controller"].ToString() == "Category" ? "active" : "")">
+          <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+          <span class="nav-text">Categories</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="/Statistics" class="nav-link @(ViewContext.RouteData.Values["Controller"].ToString() == "Statistics" ? "active" : "")">
+          <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+          <span class="nav-text">Statistics</span>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <!-- Top Navigation -->
+    <div class="top-nav">
+      <div class="d-flex align-items-center">
+        <button class="mobile-menu-toggle" id="mobileMenuToggle">
+          <i class="fas fa-bars"></i>
+        </button>
+        <h4 class="page-title">@ViewData["Title"]</h4>
+      </div>
+
+      <div class="top-nav-actions">
+        <form class="search-form" asp-controller="Habit" asp-action="SearchByTag" method="get">
+          <i class="fas fa-search search-icon"></i>
+          <input class="search-input" type="search" name="tag" placeholder="Search habits, tags or categories..." aria-label="Search">
+        </form>
+
+        <a asp-controller="Habit" asp-action="Create" class="btn btn-primary">
+          <i class="fas fa-plus me-2"></i>New Habit
+        </a>
+
+        <button id="theme-toggle" class="btn btn-link text-decoration-none">
+          <i class="fas fa-moon"></i>
+        </button>
+
+        <div class="user-dropdown dropdown">
+          <div class="d-flex align-items-center" data-bs-toggle="dropdown">
+            <img src="https://ui-avatars.com/api/?name=User&background=6366F1&color=fff" alt="User" class="avatar">
+            <i class="fas fa-chevron-down ms-2 text-muted small"></i>
+          </div>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="/Profile"><i class="fas fa-user me-2"></i>Profile</a></li>
+            <li><a class="dropdown-item" href="/Settings"><i class="fas fa-cog me-2"></i>Settings</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/Logout"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page Content -->
+    <main role="main">
+      @RenderBody()
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>© 2025 Habitify - <a asp-controller="Home" asp-action="Privacy" class="text-decoration-none">Privacy Policy</a></p>
+    </footer>
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Sidebar toggle functionality
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.getElementById('mainContent');
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+      // Check saved sidebar preference
+      const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+      if (sidebarCollapsed) {
+        sidebar.classList.add('sidebar-collapsed');
+        mainContent.classList.add('main-content-expanded');
+        sidebarToggle.innerHTML = '<i class="fas fa-angle-double-right"></i>';
+      }
+
+      sidebarToggle.addEventListener('click', function() {
+        sidebar.classList.toggle('sidebar-collapsed');
+        mainContent.classList.toggle('main-content-expanded');
+        const isCollapsed = sidebar.classList.contains('sidebar-collapsed');
+        localStorage.setItem('sidebarCollapsed', isCollapsed);
+        sidebarToggle.innerHTML = isCollapsed ? '<i class="fas fa-angle-double-right"></i>' : '<i class="fas fa-angle-double-left"></i>';
+      });
+
+      // Mobile menu toggle
+      mobileMenuToggle.addEventListener('click', function() {
+        sidebar.classList.toggle('sidebar-visible');
+      });
+
+      // Theme toggle functionality
+      const themeToggle = document.getElementById('theme-toggle');
+      const body = document.body;
+      const isDarkMode = localStorage.getItem('darkMode') === 'true';
+      if (isDarkMode) {
+        body.classList.add('dark-mode');
+        themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+      } else {
+        themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+      }
+
+      themeToggle.addEventListener('click', function() {
+        body.classList.toggle('dark-mode');
+        const isDark = body.classList.contains('dark-mode');
+        localStorage.setItem('darkMode', isDark);
+        themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+      });
+    });
+  </script>
+
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

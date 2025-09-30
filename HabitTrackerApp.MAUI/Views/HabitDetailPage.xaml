@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:HabitTrackerApp.MAUI.ViewModels"
+             xmlns:models="clr-namespace:HabitTrackerApp.Core.Models.Enhanced;assembly=HabitTrackerApp.Core"
+             x:Class="HabitTrackerApp.MAUI.Views.HabitDetailPage"
+             x:DataType="vm:HabitDetailViewModel"
+             Title="{Binding Habit.Name}">
+    
+    <ScrollView>
+        <StackLayout Padding="15" Spacing="20">
+            
+            <!-- Habit Info -->
+            <Border BackgroundColor="{AppThemeBinding Light=White, Dark=#1C1C1E}"
+                   StrokeThickness="0"
+                   Padding="15">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                
+                <StackLayout Spacing="10">
+                    <Label Text="{Binding Habit.Name}"
+                          FontSize="20"
+                          FontAttributes="Bold"
+                          HorizontalOptions="Center" />
+                    
+                    <Label Text="{Binding Habit.Description}"
+                          FontSize="14"
+                          HorizontalOptions="Center"
+                          TextColor="Gray" />
+                </StackLayout>
+            </Border>
+            
+            <!-- Session Status -->
+            <Border BackgroundColor="{AppThemeBinding Light=#F0F0F0, Dark=#2C2C2E}"
+                   StrokeThickness="0"
+                   Padding="15">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackLayout Grid.Column="0">
+                        <Label Text="Today's Session"
+                              FontSize="16"
+                              FontAttributes="Bold" />
+                        
+                        <Label Text="{Binding TimerDisplay}"
+                              FontSize="24"
+                              FontAttributes="Bold"
+                              TextColor="{Binding IsSessionActive, Converter={StaticResource BoolToColorConverter}}"
+                              IsVisible="{Binding IsSessionActive}" />
+                        
+                        <Label Text="Not started"
+                              FontSize="14"
+                              TextColor="Gray"
+                              IsVisible="{Binding IsSessionActive, Converter={StaticResource InvertedBoolConverter}}" />
+                    </StackLayout>
+                    
+                    <Button Grid.Column="1"
+                           Text="{Binding IsSessionActive, Converter={StaticResource BoolToTextConverter}}"
+                           Command="{Binding IsSessionActive, Converter={StaticResource BoolToCommandConverter}}"
+                           BackgroundColor="{AppThemeBinding Light=#007ACC, Dark=#4FC3F7}"
+                           TextColor="White"
+                           WidthRequest="100"
+                           HeightRequest="40"
+                           CornerRadius="20" />
+                </Grid>
+            </Border>
+            
+            <!-- Activities List -->
+            <Border BackgroundColor="{AppThemeBinding Light=White, Dark=#1C1C1E}"
+                   StrokeThickness="0"
+                   Padding="15"
+                   IsVisible="{Binding Activities.Count, Converter={StaticResource CountToBoolConverter}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                
+                <StackLayout Spacing="15">
+                    <Label Text="Activities"
+                          FontSize="18"
+                          FontAttributes="Bold" />
+                    
+                    <CollectionView ItemsSource="{Binding Activities}"
+                                   SelectionMode="None">
+                        
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SessionActivity">
+                                <Border BackgroundColor="{AppThemeBinding Light=#F8F8F8, Dark=#2C2C2E}"
+                                       StrokeThickness="0"
+                                       Padding="15"
+                                       Margin="0,5">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HabitDetailViewModel}}, Path=CompleteActivityCommand}"
+                                                            CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <CheckBox Grid.Column="0"
+                                                 IsChecked="{Binding IsCompleted}"
+                                                 VerticalOptions="Center" />
+                                        
+                                        <StackLayout Grid.Column="1" 
+                                                   Spacing="3"
+                                                   VerticalOptions="Center">
+                                            <Label Text="{Binding Name}"
+                                                  FontSize="14"
+                                                  FontAttributes="Bold" />
+                                            
+                                            <Label Text="{Binding Type}"
+                                                  FontSize="12"
+                                                  TextColor="Gray" />
+                                        </StackLayout>
+                                        
+                                        <Label Grid.Column="2"
+                                              Text="{Binding PlannedDuration, StringFormat='{0:mm}min'}"
+                                              FontSize="12"
+                                              TextColor="Gray"
+                                              VerticalOptions="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </StackLayout>
+            </Border>
+            
+            <!-- Session Controls -->
+            <StackLayout Spacing="10" 
+                        IsVisible="{Binding IsSessionActive}">
+                
+                <Button Text="Complete Session"
+                       Command="{Binding CompleteSessionCommand}"
+                       BackgroundColor="{AppThemeBinding Light=#28A745, Dark=#34C759}"
+                       TextColor="White"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       CornerRadius="25"
+                       HeightRequest="50" />
+            </StackLayout>
+            
+            <!-- Start Session Button -->
+            <Button Text="Start Today's Session"
+                   Command="{Binding StartSessionCommand}"
+                   BackgroundColor="{AppThemeBinding Light=#007ACC, Dark=#4FC3F7}"
+                   TextColor="White"
+                   FontSize="16"
+                   FontAttributes="Bold"
+                   CornerRadius="25"
+                   HeightRequest="50"
+                   IsVisible="{Binding IsSessionActive, Converter={StaticResource InvertedBoolConverter}}" />
+        </StackLayout>
+    </ScrollView>
+</ContentPage>

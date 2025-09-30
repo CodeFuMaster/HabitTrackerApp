@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="HabitTrackerApp.MAUI.MainPage"
+             Title="Overview">
+
+    <ScrollView>
+        <StackLayout Padding="20" Spacing="20">
+            
+            <!-- Welcome Header -->
+            <Border BackgroundColor="#6366F1"
+                   Padding="30,40">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="20" />
+                </Border.StrokeShape>
+                
+                <StackLayout Spacing="10">
+                    <Label Text="⚡"
+                           FontSize="48"
+                           HorizontalOptions="Center" />
+                    <Label Text="Habitify"
+                           FontSize="32"
+                           FontAttributes="Bold"
+                           TextColor="White"
+                           HorizontalOptions="Center" />
+                    <Label Text="Track your daily habits and build better routines"
+                           FontSize="16"
+                           TextColor="White"
+                           Opacity="0.9"
+                           HorizontalOptions="Center" />
+                </StackLayout>
+            </Border>
+
+            <!-- Quick Actions -->
+            <StackLayout Spacing="15">
+                <Label Text="Quick Actions"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="#1F2937" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Button Grid.Row="0" Grid.Column="0"
+                            Text="📋 View Habits"
+                            Clicked="OnViewHabitsClicked"
+                            BackgroundColor="#6366F1"
+                            TextColor="White"
+                            FontSize="16"
+                            CornerRadius="12"
+                            HeightRequest="60"
+                            Margin="0,0,5,5" />
+
+                    <Button Grid.Row="0" Grid.Column="1"
+                            Text="➕ Add Habit"
+                            Clicked="OnAddHabitClicked"
+                            BackgroundColor="#10B981"
+                            TextColor="White"
+                            FontSize="16"
+                            CornerRadius="12"
+                            HeightRequest="60"
+                            Margin="5,0,0,5" />
+
+                    <Button Grid.Row="1" Grid.Column="0"
+                            Text="📊 Statistics"
+                            Clicked="OnStatisticsClicked"
+                            BackgroundColor="#F59E0B"
+                            TextColor="White"
+                            FontSize="16"
+                            CornerRadius="12"
+                            HeightRequest="60"
+                            Margin="0,5,5,0" />
+
+                    <Button Grid.Row="1" Grid.Column="1"
+                            Text="📅 Daily View"
+                            Clicked="OnDailyViewClicked"
+                            BackgroundColor="#EF4444"
+                            TextColor="White"
+                            FontSize="16"
+                            CornerRadius="12"
+                            HeightRequest="60"
+                            Margin="5,5,0,0" />
+                </Grid>
+            </StackLayout>
+
+            <!-- Today's Overview -->
+            <Border BackgroundColor="{AppThemeBinding Light=White, Dark=#1F2937}"
+                   StrokeThickness="0"
+                   Padding="25">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="15" />
+                </Border.StrokeShape>
+                
+                <StackLayout Spacing="15">
+                    <Label Text="📈 Today's Overview"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackLayout Grid.Column="0" HorizontalOptions="Center">
+                            <Label Text="5"
+                                   FontSize="28"
+                                   FontAttributes="Bold"
+                                   TextColor="#10B981"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Completed"
+                                   FontSize="12"
+                                   TextColor="#6B7280"
+                                   HorizontalOptions="Center" />
+                        </StackLayout>
+
+                        <StackLayout Grid.Column="1" HorizontalOptions="Center">
+                            <Label Text="8"
+                                   FontSize="28"
+                                   FontAttributes="Bold"
+                                   TextColor="#6366F1"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Total"
+                                   FontSize="12"
+                                   TextColor="#6B7280"
+                                   HorizontalOptions="Center" />
+                        </StackLayout>
+
+                        <StackLayout Grid.Column="2" HorizontalOptions="Center">
+                            <Label Text="63%"
+                                   FontSize="28"
+                                   FontAttributes="Bold"
+                                   TextColor="#F59E0B"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Rate"
+                                   FontSize="12"
+                                   TextColor="#6B7280"
+                                   HorizontalOptions="Center" />
+                        </StackLayout>
+                    </Grid>
+                </StackLayout>
+            </Border>
+
+            <!-- Features -->
+            <Border BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#2C2C2E}"
+                   StrokeThickness="0"
+                   Padding="25">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="15" />
+                </Border.StrokeShape>
+                
+                <StackLayout Spacing="15">
+                    <Label Text="🚀 Features"
+                           FontSize="18"
+                           FontAttributes="Bold" />
+                    
+                    <StackLayout Spacing="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Text="�" FontSize="20" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="Track complex routines (Gym, Morning, BJJ)" FontSize="14" VerticalOptions="Center" Margin="10,0,0,0" />
+                        </Grid>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Text="⏱️" FontSize="20" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="Built-in timer for timed activities" FontSize="14" VerticalOptions="Center" Margin="10,0,0,0" />
+                        </Grid>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Text="📊" FontSize="20" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="Comprehensive progress tracking" FontSize="14" VerticalOptions="Center" Margin="10,0,0,0" />
+                        </Grid>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Text="💾" FontSize="20" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="Offline-first data storage" FontSize="14" VerticalOptions="Center" Margin="10,0,0,0" />
+                        </Grid>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Text="📱" FontSize="20" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="Cross-platform native experience" FontSize="14" VerticalOptions="Center" Margin="10,0,0,0" />
+                        </Grid>
+                    </StackLayout>
+                </StackLayout>
+            </Border>
+
+            <!-- Call to Action -->
+            <Border BackgroundColor="#6366F1"
+                   Padding="25">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="15" />
+                </Border.StrokeShape>
+                
+                <StackLayout Spacing="15">
+                    <Label Text="Ready to build better habits? 🚀"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="White"
+                           HorizontalOptions="Center" />
+                    <Button Text="Get Started"
+                            Clicked="OnViewHabitsClicked"
+                            BackgroundColor="White"
+                            TextColor="#6366F1"
+                            FontSize="16"
+                            FontAttributes="Bold"
+                            CornerRadius="25"
+                            HeightRequest="50"
+                            WidthRequest="150"
+                            HorizontalOptions="Center" />
+                </StackLayout>
+            </Border>
+        </StackLayout>
+    </ScrollView>
+</ContentPage>

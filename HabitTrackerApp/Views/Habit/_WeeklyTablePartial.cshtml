@@ -1,0 +1,109 @@
+﻿@model WeeklyHabitRowModel
+
+@{
+  // model.Habit => the Habit
+  // model.WeekStart => the Monday date
+  // model.Days => the 7 days
+  var habit = Model.Habit;
+}
+
+<tr>
+  <td>
+    @if (habit.TimeOfDay.HasValue)
+    {
+      @habit.TimeOfDay.Value.ToString(@"hh\:mm")
+    }
+  </td>
+  <td>
+    <!-- Habit Info -->
+    <div class="habit-cell">
+      @if (!string.IsNullOrEmpty(habit.ImageUrl))
+      {
+          <img src="@habit.ImageUrl" alt="@habit.Name" class="habit-icon" />
+      }
+      else
+      {
+          <i class="fas fa-question-circle"></i>
+      }
+      <div>
+        <strong>@habit.Name</strong><br />
+        <small>@habit.Description</small>
+
+        <!-- Progress bar (calculating is done in main view or here) -->
+        @{
+          int completedCount = 0;
+          for (int i = 0; i < 7; i++)
+          {
+            var date = Model.WeekStart.AddDays(i).Date;
+            if (habit.OccursOn(date))
+            {
+              bool isDone = habit.DailyHabitEntries?.Any(e => e.Date.Date == date && e.IsCompleted) ?? false;
+              if (isDone) completedCount++;
+            }
+          }
+          int totalDays = Enumerable.Range(0, 7).Count(i => habit.OccursOn(Model.WeekStart.AddDays(i).Date));
+          double progressPercent = (totalDays == 0) ? 0 : (completedCount * 100.0 / totalDays);
+        }
+        <div class="habit-progress-container">
+          <div class="habit-progress-bar" style="width:@progressPercent%;"></div>
+          <div class="progress-label">@progressPercent.ToString("0")%</div>
+        </div>
+      </div>
+    </div>
+  </td>
+  <!-- Day Columns -->
+  @foreach (var day in Model.Days)
+  {
+    var isToday = (day.Date == DateTime.Today.Date);
+    if (habit.OccursOn(day))
+    {
+      bool isCompleted = habit.DailyHabitEntries?
+      .Any(e => e.Date.Date == day.Date && e.IsCompleted) ?? false;
+          <td class="@(isCompleted ? "completed-cell" : "") @(isToday ? "today-column" : "")"
+              title="@(isCompleted ? "Completed" : "Not completed")">
+            <!-- Toggling IsCompleted -->
+            <form asp-action="ToggleCompleted" method="post" class="m-0">
+              <input type="hidden" name="habitId" value="@habit.Id" />
+              <input type="hidden" name="date" value="@day.ToString("yyyy-MM-dd")" />
+              <input type="hidden" name="returnUrl"
+                     value="@Url.Action("WeeklyTableView", new { weekStart = Model.WeekStart.ToString("yyyy-'W'ww") })" />
+              <label class="d-inline-flex align-items-center">
+                <input type="checkbox" class="completed-checkbox" onchange="this.form.submit()"
+            @(isCompleted ? "checked" : "") />
+                <span class="ms-1">Done</span>
+              </label>
+            </form>
+            <!-- Reflection link -->
+            <a asp-action="AddReflection"
+               asp-route-habitId="@habit.Id"
+               asp-route-date="@day.ToString("yyyy-MM-dd")"
+               asp-route-returnUrl="@Url.Action("WeeklyTableView", new { weekStart = Model.WeekStart.ToString("yyyy-'W'ww") })"
+               class="reflection-link"
+               title="Add/Edit Reflection">
+              <i class="fas fa-edit"></i> Reflection
+            </a>
+          </td>
+    }
+    else
+    {
+          <td class="inactive-cell @(isToday ? "today-column" : "")" title="Does not occur">
+            <i class="fa-regular fa-circle-xmark"></i>
+          </td>
+    }
+  }
+
+  <!-- Actions Column -->
+  <td>
+    <div class="btn-group">
+      <a asp-action="Details" asp-route-id="@habit.Id" class="btn btn-sm btn-secondary" title="View details">
+        <i class="fas fa-info-circle"></i>
+      </a>
+      <a asp-action="Edit" asp-route-id="@habit.Id" class="btn btn-sm btn-secondary" title="Edit">
+        <i class="fas fa-edit"></i>
+      </a>
+      <a asp-action="Delete" asp-route-id="@habit.Id" class="btn btn-sm btn-secondary" title="Delete">
+        <i class="fas fa-trash-alt"></i>
+      </a>
+    </div>
+  </td>
+</tr>

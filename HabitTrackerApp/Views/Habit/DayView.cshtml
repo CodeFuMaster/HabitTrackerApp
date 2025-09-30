@@ -1,0 +1,395 @@
+﻿@model IEnumerable<HabitTrackerApp.Models.Habit>
+@using System.Globalization
+
+@{
+  // Selected day from the controller.
+  DateTime selectedDate = (DateTime)ViewBag.SelectedDate;
+  ViewBag.Title = "Habits for " + selectedDate.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture);
+
+  var today = DateTime.Today;
+  var todayValue = today.ToString("yyyy-MM-dd");
+  var prevDate = selectedDate.AddDays(-1).ToString("yyyy-MM-dd");
+  var nextDate = selectedDate.AddDays(1).ToString("yyyy-MM-dd");
+
+  // Sort habits from the controller
+  var sortedHabits = Model.ToList();
+}
+
+@section Scripts {
+  <script>
+    // Toggle a habit's completion status via AJAX
+    async function toggleDayCompletedAjax(checkbox) {
+        const habitId = checkbox.dataset.habitid;
+        const date = checkbox.dataset.date;
+        const payload = { HabitId: parseInt(habitId), Date: date };
+
+        try {
+            const response = await fetch('/Habit/ToggleCompletedAjax', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                checkbox.checked = !checkbox.checked;
+                alert("Error toggling habit (status " + response.status + ")");
+                return;
+            }
+
+            const data = await response.json();
+            if (!data.success) {
+                checkbox.checked = !checkbox.checked;
+                alert("Server error: " + data.message);
+            } else {
+                // 1) Toggle "completed-cell" background for the Done column
+                const doneCell = checkbox.closest('td');
+                if (doneCell) {
+                    if (data.isCompleted) {
+                        doneCell.classList.add('completed-cell');
+                    } else {
+                        doneCell.classList.remove('completed-cell');
+                    }
+                }
+
+                // 2) Toggle the green "Done!" message or icon in the Habit column
+                const row = checkbox.closest('tr');
+                const doneMessage = row.querySelector('.done-message');
+                if (doneMessage) {
+                    if (data.isCompleted) {
+                        doneMessage.style.display = 'inline';
+                    } else {
+                        doneMessage.style.display = 'none';
+                    }
+                }
+
+                // 3) Update the progress bar and check if all habits are done
+                updateProgressBar();
+                checkIfAllDone();
+            }
+        } catch (err) {
+            checkbox.checked = !checkbox.checked;
+            alert("Network error: " + err);
+        }
+    }
+
+    // Checks if all checkboxes are checked. If so, show the "All tasks done" message.
+    function checkIfAllDone() {
+        const allCheckboxes = document.querySelectorAll('.form-check-input');
+        let allChecked = true;
+
+        allCheckboxes.forEach(cb => {
+            if(!cb.checked) {
+                allChecked = false;
+            }
+        });
+
+        const allDoneMsg = document.getElementById('all-done-message');
+        if (allCheckboxes.length > 0 && allChecked) {
+            allDoneMsg.style.display = 'block';
+        } else {
+            allDoneMsg.style.display = 'none';
+        }
+    }
+
+    // Update the progress bar based on how many habits are completed
+    function updateProgressBar() {
+        const allCheckboxes = document.querySelectorAll('.form-check-input');
+        const total = allCheckboxes.length;
+        if (total === 0) {
+            // No habits at all; set progress to 0.
+            setProgressBar(0, 0);
+            return;
+        }
+
+        let completed = 0;
+        allCheckboxes.forEach(cb => {
+            if (cb.checked) {
+                completed++;
+            }
+        });
+
+        const percentage = Math.round((completed / total) * 100);
+        setProgressBar(percentage, completed);
+    }
+
+    function setProgressBar(percentage, completedCount) {
+        const progressBar = document.getElementById('habits-progress-bar');
+        progressBar.style.width = percentage + '%';
+        progressBar.setAttribute('aria-valuenow', percentage);
+        progressBar.textContent = percentage + '%';
+
+        // Optionally, also show text outside the bar
+        const progressText = document.getElementById('progress-percentage');
+        progressText.textContent = `${completedCount} / ${progressBar.getAttribute('aria-valuemax')} Habits Done (${percentage}%)`;
+    }
+
+    // Real-time indicator logic
+    function updateOngoingHabitIndicator() {
+        const now = new Date();
+        const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
+
+        document.querySelectorAll('.habit-row').forEach(row => {
+            const startTimeStr = row.dataset.startTime;
+            const endTimeStr = row.dataset.endTime;
+
+            if (startTimeStr && endTimeStr) {
+                const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
+                const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
+                const startTime = startHours * 60 + startMinutes;
+                const endTime = endHours * 60 + endMinutes;
+
+                if (currentTime >= startTime && currentTime <= endTime) {
+                    row.classList.add('ongoing-habit');
+                } else {
+                    row.classList.remove('ongoing-habit');
+                }
+            }
+        });
+    }
+
+    // Function to toggle all habits at once
+    async function toggleAllHabits(markAsDone) {
+      const checkboxes = document.querySelectorAll('.form-check-input');
+      const button = document.getElementById('markAllButton');
+      
+      // Update button appearance immediately for better UX
+      updateMarkAllButton(!markAsDone);
+      
+      // Process all checkboxes
+      for (const checkbox of checkboxes) {
+        // Only toggle checkboxes that aren't already in the desired state
+        if (checkbox.checked !== markAsDone) {
+          checkbox.checked = markAsDone; // Set the checkbox state first
+          await toggleDayCompletedAjax(checkbox); // Then call the AJAX function
+        }
+      }
+      
+      // Ensure progress bar and completion message are updated
+      updateProgressBar();
+      checkIfAllDone();
+    }
+    
+    // Function to update the button text and style
+    function updateMarkAllButton(allDone) {
+      const button = document.getElementById('markAllButton');
+      if (allDone) {
+        button.innerHTML = '<i class="fas fa-times-circle"></i> Mark All as Undone';
+        button.classList.remove('btn-outline-primary');
+        button.classList.add('btn-outline-danger');
+      } else {
+        button.innerHTML = '<i class="fas fa-check-double"></i> Mark All as Done';
+        button.classList.remove('btn-outline-danger');
+        button.classList.add('btn-outline-primary');
+      }
+    }
+
+    // On page load, update progress bar, check if all habits are done, and start real-time indicator
+    document.addEventListener('DOMContentLoaded', () => {
+        const progressBar = document.getElementById('habits-progress-bar');
+        const allCheckboxes = document.querySelectorAll('.form-check-input');
+        // For accessibility, set the aria-valuemax to total number of habits
+        progressBar.setAttribute('aria-valuemax', allCheckboxes.length);
+
+        updateProgressBar();
+        checkIfAllDone();
+        updateOngoingHabitIndicator(); // Initial check
+
+        // Update every minute
+        setInterval(updateOngoingHabitIndicator, 60000);
+
+        // Add this new code for the Mark All button
+        const markAllButton = document.getElementById('markAllButton');
+        if (markAllButton) {
+          markAllButton.addEventListener('click', () => {
+            const allCheckboxes = document.querySelectorAll('.form-check-input');
+            const checkedCheckboxes = document.querySelectorAll('.form-check-input:checked');
+            
+            // If all checkboxes are checked, uncheck all; otherwise, check all
+            const markAsDone = checkedCheckboxes.length !== allCheckboxes.length;
+            toggleAllHabits(markAsDone);
+          });
+          
+          // Initialize button state based on current checkboxes
+          const allCheckboxes = document.querySelectorAll('.form-check-input');
+          const checkedCheckboxes = document.querySelectorAll('.form-check-input:checked');
+          updateMarkAllButton(allCheckboxes.length > 0 && checkedCheckboxes.length === allCheckboxes.length);
+        }
+    });
+  </script>
+}
+
+
+
+<div class="habit-card">
+  <!-- Header with navigation, title, and Create New Habit button -->
+  <div class="habit-header">
+    <div class="d-flex align-items-center">
+      <a asp-action="DayView" asp-route-date="@prevDate" class="btn btn-outline-light">
+        « Previous
+      </a>
+      <div class="text-center mx-3">
+        <h4>@ViewBag.Title</h4>
+        <div class="btn-group mt-2">
+          <a asp-action="DayView" asp-route-date="@todayValue" class="btn btn-sm btn-light">Today</a>
+          <form method="get" asp-action="DayView" class="d-inline-flex align-items-center ms-2">
+            <input type="date" name="date" class="form-control form-control-sm" style="width: auto;"
+                   value="@selectedDate.ToString("yyyy-MM-dd")" />
+            <button type="submit" class="btn btn-sm btn-light ms-2">Go</button>
+          </form>
+        </div>
+      </div>
+      <a asp-action="DayView" asp-route-date="@nextDate" class="btn btn-outline-light">
+        Next »
+      </a>
+    </div>
+    <!-- Right side actions -->
+    <div class="d-flex align-items-center">
+      <a asp-action="Create" class="btn btn-success btn-sm me-2" title="Create New Habit">
+        <i class="fas fa-plus-circle"></i> New Habit
+      </a>
+    </div>
+  </div>
+
+  <!-- Progress Bar (fills as daily habits are checked) -->
+  <div class="dayview-progress">
+    <div class="d-flex align-items-center gap-3 mb-2">
+      <button id="markAllButton" class="btn btn-outline-primary btn-sm">
+        <i class="fas fa-check-double"></i> Mark All as Done
+      </button>
+      <div class="progress flex-grow-1" style="height: 20px;">
+        <div id="habits-progress-bar"
+             class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+             role="progressbar"
+             style="width: 0%"
+             aria-valuenow="0"
+             aria-valuemin="0"
+             aria-valuemax="100">
+          0%
+        </div>
+      </div>
+    </div>
+    <span id="progress-percentage">0% Complete</span>
+  </div>
+  
+  <!-- "All Done" message hidden by default. Shown when all checkboxes are checked. -->
+  <div id="all-done-message" class="all-done-message">
+    Congratulations! All habits for today are done!
+  </div>
+
+  <!-- Table with habits -->
+  <div class="p-3">
+    <div class="table-responsive">
+      <table class="habit-table">
+        <thead>
+          <tr>
+            <th style="min-width:80px;">Time</th>
+            <th style="min-width:250px;">Habit</th>
+            <th style="min-width:100px;">Done</th>
+            <th style="min-width:120px;">Reflection</th>
+            <th style="min-width:150px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var habit in sortedHabits)
+          {
+            bool isCompletedToday = habit.DailyHabitEntries?
+            .Any(e => e.Date.Date == selectedDate.Date && e.IsCompleted) ?? false;
+
+            // For Done column highlight
+            string doneClass = isCompletedToday ? "completed-cell" : "";
+
+            // Add data attributes for start and end times
+            string startTime = habit.TimeOfDay.HasValue ? habit.TimeOfDay.Value.ToString(@"hh\:mm") : "";
+            string endTime = habit.TimeOfDayEnd.HasValue ? habit.TimeOfDayEnd.Value.ToString(@"hh\:mm") : "";
+
+            <tr class="habit-row" data-start-time="@startTime" data-end-time="@endTime">
+              <!-- Time Column -->
+              <td>
+                @if (habit.TimeOfDay.HasValue)
+                {
+                  <span style="white-space: nowrap;">
+                    @habit.TimeOfDay.Value.ToString(@"hh\:mm")
+                    @if (habit.TimeOfDayEnd.HasValue)
+                    {
+                      @(" - " + habit.TimeOfDayEnd.Value.ToString(@"hh\:mm"))
+                    }
+                  </span>
+                }
+              </td>
+
+              <!-- Habit Column -->
+              <td>
+                <div class="habit-cell">
+                  @if (!string.IsNullOrEmpty(habit.ImageUrl))
+                  {
+                    <img src="@habit.ImageUrl" alt="@habit.Name" class="habit-icon" />
+                  }
+                  else
+                  {
+                    <i class="fas fa-question-circle" style="font-size: 2rem; color: var(--gray);"></i>
+                  }
+                  <div class="text-start">
+                    <strong>@habit.Name</strong><br />
+                    <small>@habit.ShortDescription</small><br />
+                    <small class="text-muted">Category: @(habit.Category?.Name ?? "None")</small>
+                    <!-- Done message or checkmark, hidden unless isCompletedToday is true -->
+                    <div class="done-message" style="display:@(isCompletedToday ? "inline" : "none");">
+                      <i class="fas fa-check-circle"></i> Done!
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Done Column (Checkbox) -->
+              <!-- Done Column (Checkbox) -->
+              <td class="@doneClass">
+                <div style="display: flex; justify-content: center; align-items: center; height: 100%;" class="form-check">
+                  <input type="checkbox"
+                         class="form-check-input"
+                         data-habitid="@habit.Id"
+                         data-date="@selectedDate.ToString("yyyy-MM-dd")"
+                         onclick="toggleDayCompletedAjax(this)"
+                         @(isCompletedToday ? "checked" : "")/>
+                </div>
+              </td>
+
+              <!-- Reflection Column -->
+              <td>
+                <a asp-action="AddReflection"
+                   asp-route-habitId="@habit.Id"
+                   asp-route-date="@selectedDate.ToString("yyyy-MM-dd")"
+                   asp-route-returnUrl="@Url.Action("DayView", new { date = selectedDate.ToString("yyyy-MM-dd") })"
+                   class="btn btn-sm btn-secondary" title="Add Reflection">
+                  <i class="fas fa-edit"></i> Reflection
+                </a>
+              </td>
+
+              <!-- Actions Column -->
+              <td>
+                <div class="btn-group">
+                  <a asp-action="Details" asp-route-id="@habit.Id" class="btn btn-outline-primary btn-sm" style="margin-right: 5px;">
+                    <i class="fas fa-info-circle"></i>
+                  </a>
+                  <a asp-controller="Statistics" asp-action="Statistics" asp-route-habitId="@habit.Id" class="btn btn-outline-secondary btn-sm" style="margin-right: 5px;">
+                    <i class="fas fa-chart-line"></i>
+                  </a>
+                  <a asp-action="Edit" asp-route-id="@habit.Id" class="btn btn-outline-success btn-sm" style="margin-right: 5px;">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <a asp-action="Delete" asp-route-id="@habit.Id" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-trash-alt"></i>
+                  </a>
+                </div>
+              </td>
+
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- "All Done" message hidden by default. Shown when all checkboxes are checked. -->
+    <div id="all-done-message" class="all-done-message">
+      Congratulations! All habits for today are done!
+    </div>
+  </div>
+</div>
