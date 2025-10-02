@@ -247,32 +247,262 @@ namespace HabitTrackerApp.API.Controllers
             }
         }
 
-        // Placeholder methods for specific entity changes
+        // Entity-specific change application methods
         private async Task ApplyHabitChange(SyncRecord change, Dictionary<string, JsonElement>? data)
         {
-            // Implementation would deserialize the data and apply to Habits table
-            // This is a simplified version - full implementation would handle all fields
+            if (data == null) return;
+
+            switch (change.Operation.ToUpperInvariant())
+            {
+                case "INSERT":
+                case "UPDATE":
+                    var habit = await _context.Habits.FindAsync(change.RecordId);
+                    if (habit == null && change.Operation.ToUpperInvariant() == "INSERT")
+                    {
+                        habit = JsonSerializer.Deserialize<HabitTrackerApp.Core.Models.Habit>(change.Data);
+                        if (habit != null)
+                        {
+                            _context.Habits.Add(habit);
+                        }
+                    }
+                    else if (habit != null)
+                    {
+                        // Update existing habit with conflict detection
+                        if (habit.LastModifiedDate < change.Timestamp)
+                        {
+                            UpdateHabitFromData(habit, data);
+                            habit.LastModifiedDate = change.Timestamp;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Skipping habit update - local version is newer. HabitId: {HabitId}", change.RecordId);
+                        }
+                    }
+                    break;
+
+                case "DELETE":
+                    var habitToDelete = await _context.Habits.FindAsync(change.RecordId);
+                    if (habitToDelete != null)
+                    {
+                        habitToDelete.IsDeleted = true;
+                        habitToDelete.LastModifiedDate = change.Timestamp;
+                    }
+                    break;
+            }
+
+            await _context.SaveChangesAsync();
             _logger.LogInformation("Applied habit change: {Operation} for record {RecordId}", change.Operation, change.RecordId);
         }
 
         private async Task ApplyDailyHabitEntryChange(SyncRecord change, Dictionary<string, JsonElement>? data)
         {
+            if (data == null) return;
+
+            switch (change.Operation.ToUpperInvariant())
+            {
+                case "INSERT":
+                case "UPDATE":
+                    var entry = await _context.DailyHabitEntries.FindAsync(change.RecordId);
+                    if (entry == null && change.Operation.ToUpperInvariant() == "INSERT")
+                    {
+                        entry = JsonSerializer.Deserialize<HabitTrackerApp.Core.Models.DailyHabitEntry>(change.Data);
+                        if (entry != null)
+                        {
+                            _context.DailyHabitEntries.Add(entry);
+                        }
+                    }
+                    else if (entry != null)
+                    {
+                        UpdateDailyEntryFromData(entry, data);
+                        entry.UpdatedAt = change.Timestamp;
+                    }
+                    break;
+
+                case "DELETE":
+                    var entryToDelete = await _context.DailyHabitEntries.FindAsync(change.RecordId);
+                    if (entryToDelete != null)
+                    {
+                        _context.DailyHabitEntries.Remove(entryToDelete);
+                    }
+                    break;
+            }
+
+            await _context.SaveChangesAsync();
             _logger.LogInformation("Applied daily habit entry change: {Operation} for record {RecordId}", change.Operation, change.RecordId);
         }
 
         private async Task ApplyRoutineSessionChange(SyncRecord change, Dictionary<string, JsonElement>? data)
         {
+            if (data == null) return;
+
+            switch (change.Operation.ToUpperInvariant())
+            {
+                case "INSERT":
+                case "UPDATE":
+                    var session = await _context.RoutineSessions
+                        .Include(rs => rs.Activities)
+                        .FirstOrDefaultAsync(rs => rs.Id == change.RecordId);
+                    
+                    if (session == null && change.Operation.ToUpperInvariant() == "INSERT")
+                    {
+                        session = JsonSerializer.Deserialize<HabitTrackerApp.Core.Models.Enhanced.RoutineSession>(change.Data);
+                        if (session != null)
+                        {
+                            _context.RoutineSessions.Add(session);
+                        }
+                    }
+                    else if (session != null)
+                    {
+                        if (session.LastModifiedAt < change.Timestamp)
+                        {
+                            UpdateRoutineSessionFromData(session, data);
+                            session.LastModifiedAt = change.Timestamp;
+                        }
+                    }
+                    break;
+
+                case "DELETE":
+                    var sessionToDelete = await _context.RoutineSessions.FindAsync(change.RecordId);
+                    if (sessionToDelete != null)
+                    {
+                        _context.RoutineSessions.Remove(sessionToDelete);
+                    }
+                    break;
+            }
+
+            await _context.SaveChangesAsync();
             _logger.LogInformation("Applied routine session change: {Operation} for record {RecordId}", change.Operation, change.RecordId);
         }
 
         private async Task ApplySessionActivityChange(SyncRecord change, Dictionary<string, JsonElement>? data)
         {
+            if (data == null) return;
+
+            switch (change.Operation.ToUpperInvariant())
+            {
+                case "INSERT":
+                case "UPDATE":
+                    var activity = await _context.SessionActivities
+                        .Include(sa => sa.Metrics)
+                        .FirstOrDefaultAsync(sa => sa.Id == change.RecordId);
+                    
+                    if (activity == null && change.Operation.ToUpperInvariant() == "INSERT")
+                    {
+                        activity = JsonSerializer.Deserialize<HabitTrackerApp.Core.Models.Enhanced.SessionActivity>(change.Data);
+                        if (activity != null)
+                        {
+                            _context.SessionActivities.Add(activity);
+                        }
+                    }
+                    else if (activity != null)
+                    {
+                        UpdateSessionActivityFromData(activity, data);
+                    }
+                    break;
+
+                case "DELETE":
+                    var activityToDelete = await _context.SessionActivities.FindAsync(change.RecordId);
+                    if (activityToDelete != null)
+                    {
+                        _context.SessionActivities.Remove(activityToDelete);
+                    }
+                    break;
+            }
+
+            await _context.SaveChangesAsync();
             _logger.LogInformation("Applied session activity change: {Operation} for record {RecordId}", change.Operation, change.RecordId);
         }
 
         private async Task ApplyCategoryChange(SyncRecord change, Dictionary<string, JsonElement>? data)
         {
+            if (data == null) return;
+
+            switch (change.Operation.ToUpperInvariant())
+            {
+                case "INSERT":
+                case "UPDATE":
+                    var category = await _context.Categories.FindAsync(change.RecordId);
+                    if (category == null && change.Operation.ToUpperInvariant() == "INSERT")
+                    {
+                        category = JsonSerializer.Deserialize<HabitTrackerApp.Core.Models.Category>(change.Data);
+                        if (category != null)
+                        {
+                            _context.Categories.Add(category);
+                        }
+                    }
+                    else if (category != null)
+                    {
+                        UpdateCategoryFromData(category, data);
+                    }
+                    break;
+
+                case "DELETE":
+                    var categoryToDelete = await _context.Categories.FindAsync(change.RecordId);
+                    if (categoryToDelete != null)
+                    {
+                        _context.Categories.Remove(categoryToDelete);
+                    }
+                    break;
+            }
+
+            await _context.SaveChangesAsync();
             _logger.LogInformation("Applied category change: {Operation} for record {RecordId}", change.Operation, change.RecordId);
+        }
+
+        // Helper methods to update entities from JSON data
+        private void UpdateHabitFromData(HabitTrackerApp.Core.Models.Habit habit, Dictionary<string, JsonElement> data)
+        {
+            if (data.TryGetValue("Name", out var name)) habit.Name = name.GetString() ?? habit.Name;
+            if (data.TryGetValue("Description", out var desc)) habit.Description = desc.GetString();
+            if (data.TryGetValue("ShortDescription", out var shortDesc)) habit.ShortDescription = shortDesc.GetString();
+            if (data.TryGetValue("IsActive", out var isActive)) habit.IsActive = isActive.GetBoolean();
+            if (data.TryGetValue("CategoryId", out var catId) && catId.ValueKind != JsonValueKind.Null) 
+                habit.CategoryId = catId.GetInt32();
+            if (data.TryGetValue("Tags", out var tags)) habit.Tags = tags.GetString();
+            if (data.TryGetValue("ImageUrl", out var imgUrl)) habit.ImageUrl = imgUrl.GetString();
+        }
+
+        private void UpdateDailyEntryFromData(HabitTrackerApp.Core.Models.DailyHabitEntry entry, Dictionary<string, JsonElement> data)
+        {
+            if (data.TryGetValue("IsCompleted", out var isCompleted)) entry.IsCompleted = isCompleted.GetBoolean();
+            if (data.TryGetValue("Reflection", out var reflection)) entry.Reflection = reflection.GetString();
+            if (data.TryGetValue("Score", out var score) && score.ValueKind != JsonValueKind.Null) 
+                entry.Score = score.GetInt32();
+        }
+
+        private void UpdateRoutineSessionFromData(HabitTrackerApp.Core.Models.Enhanced.RoutineSession session, Dictionary<string, JsonElement> data)
+        {
+            if (data.TryGetValue("IsCompleted", out var isCompleted)) session.IsCompleted = isCompleted.GetBoolean();
+            if (data.TryGetValue("Notes", out var notes)) session.Notes = notes.GetString();
+            if (data.TryGetValue("Rating", out var rating) && rating.ValueKind != JsonValueKind.Null) 
+                session.Rating = rating.GetInt32();
+            if (data.TryGetValue("StartedAt", out var startedAt) && startedAt.ValueKind != JsonValueKind.Null)
+                session.StartedAt = startedAt.GetDateTime();
+            if (data.TryGetValue("CompletedAt", out var completedAt) && completedAt.ValueKind != JsonValueKind.Null)
+                session.CompletedAt = completedAt.GetDateTime();
+        }
+
+        private void UpdateSessionActivityFromData(HabitTrackerApp.Core.Models.Enhanced.SessionActivity activity, Dictionary<string, JsonElement> data)
+        {
+            if (data.TryGetValue("IsCompleted", out var isCompleted)) activity.IsCompleted = isCompleted.GetBoolean();
+            if (data.TryGetValue("Notes", out var notes)) activity.Notes = notes.GetString();
+            if (data.TryGetValue("StartTime", out var startTime) && startTime.ValueKind != JsonValueKind.Null)
+                activity.StartTime = startTime.GetDateTime();
+            if (data.TryGetValue("EndTime", out var endTime) && endTime.ValueKind != JsonValueKind.Null)
+                activity.EndTime = endTime.GetDateTime();
+            if (data.TryGetValue("PlannedDuration", out var duration) && duration.ValueKind != JsonValueKind.Null)
+            {
+                var durationStr = duration.GetString();
+                if (!string.IsNullOrEmpty(durationStr) && TimeSpan.TryParse(durationStr, out var ts))
+                    activity.PlannedDuration = ts;
+            }
+        }
+
+        private void UpdateCategoryFromData(HabitTrackerApp.Core.Models.Category category, Dictionary<string, JsonElement> data)
+        {
+            if (data.TryGetValue("Name", out var name)) category.Name = name.GetString() ?? category.Name;
+            if (data.TryGetValue("Description", out var desc)) category.Description = desc.GetString();
+            if (data.TryGetValue("ImageUrl", out var imgUrl)) category.ImageUrl = imgUrl.GetString();
         }
     }
 }

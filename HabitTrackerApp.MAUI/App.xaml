@@ -16,6 +16,9 @@
             <converters:BoolToCompletedColorConverter x:Key="BoolToCompletedColorConverter" />
             <converters:BoolToFilterColorConverter x:Key="BoolToFilterColorConverter" />
             <converters:BoolToFilterTextColorConverter x:Key="BoolToFilterTextColorConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:IsZeroConverter x:Key="IsZeroConverter" />
+            <converters:HabitCompletionColorConverter x:Key="HabitCompletionColorConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

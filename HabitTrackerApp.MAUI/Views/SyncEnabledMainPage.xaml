@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="HabitTrackerApp.MAUI.Views.SyncEnabledMainPage"
+             Title="HabitTracker - Offline-First Sync">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="20">
+            
+            <!-- Header with Sync Status -->
+            <Frame BackgroundColor="{StaticResource Primary}" 
+                   Padding="15" 
+                   CornerRadius="10"
+                   HasShadow="True">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="🎯 HabitTracker" 
+                           FontSize="24" 
+                           FontAttributes="Bold" 
+                           TextColor="White" 
+                           HorizontalOptions="Center" />
+                    
+                    <Label Text="{Binding SyncStatus}" 
+                           FontSize="14" 
+                           TextColor="White" 
+                           HorizontalOptions="Center" />
+                    
+                    <HorizontalStackLayout Spacing="15" 
+                                         HorizontalOptions="Center">
+                        <Label Text="{Binding IsServerOnline, StringFormat='Status: {0}'}" 
+                               FontSize="12" 
+                               TextColor="White" />
+                        
+                        <Label Text="{Binding ConnectedDevices, StringFormat='Devices: {0}'}" 
+                               FontSize="12" 
+                               TextColor="White" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Server Connection Info -->
+            <Frame BackgroundColor="LightBlue" 
+                   Padding="10" 
+                   CornerRadius="5">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="🌐 Sync Architecture" 
+                           FontAttributes="Bold" />
+                    <Label Text="{Binding ServerUrl}" 
+                           FontSize="12" />
+                    <Label Text="{Binding DeviceInfo}" 
+                           FontSize="12" />
+                    <Label Text="{Binding LastSyncTime, StringFormat='Last Sync: {0:HH:mm:ss}'}" 
+                           FontSize="12" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Action Buttons -->
+            <HorizontalStackLayout Spacing="10" 
+                                 HorizontalOptions="Center">
+                <Button Text="🔄 Refresh" 
+                        Command="{Binding RefreshCommand}"
+                        IsEnabled="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}" />
+                
+                <Button Text="⚡ Force Sync" 
+                        Command="{Binding ForceSyncCommand}"
+                        IsEnabled="{Binding IsSyncing, Converter={StaticResource InvertedBoolConverter}}" />
+            </HorizontalStackLayout>
+
+            <!-- Quick Add Habit -->
+            <Frame BackgroundColor="LightGreen" 
+                   Padding="15" 
+                   CornerRadius="10">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="➕ Quick Add Habit" 
+                           FontAttributes="Bold" />
+                    
+                    <Entry x:Name="NewHabitEntry" 
+                           Placeholder="Enter habit name..." />
+                    
+                    <Button Text="Add Habit" 
+                            Clicked="OnAddHabitClicked" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Today's Habits -->
+            <Frame BackgroundColor="White" 
+                   Padding="15" 
+                   CornerRadius="10"
+                   HasShadow="True">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="📋 Today's Habits" 
+                           FontAttributes="Bold" 
+                           FontSize="18" />
+
+                    <CollectionView ItemsSource="{Binding Habits}"
+                                  SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="5" 
+                                      ColumnDefinitions="*, Auto">
+                                    
+                                    <VerticalStackLayout Grid.Column="0">
+                                        <Label Text="{Binding Name}" 
+                                               FontAttributes="Bold" />
+                                        <Label Text="{Binding Description}" 
+                                               FontSize="12" 
+                                               TextColor="Gray" />
+                                    </VerticalStackLayout>
+                                    
+                                    <Button Grid.Column="1"
+                                            Text="✓"
+                                            BackgroundColor="{Binding Id, Converter={StaticResource HabitCompletionColorConverter}}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleHabitCompletionCommand}"
+                                            CommandParameter="{Binding .}"
+                                            WidthRequest="40"
+                                            HeightRequest="40" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <!-- Empty State -->
+                    <Label Text="No habits yet. Add some habits to get started!" 
+                           IsVisible="{Binding Habits.Count, Converter={StaticResource IsZeroConverter}}"
+                           HorizontalOptions="Center" 
+                           TextColor="Gray" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Loading Indicator -->
+            <ActivityIndicator IsRunning="{Binding IsLoading}" 
+                             IsVisible="{Binding IsLoading}"
+                             Color="{StaticResource Primary}" />
+
+            <!-- Sync Progress -->
+            <ActivityIndicator IsRunning="{Binding IsSyncing}" 
+                             IsVisible="{Binding IsSyncing}"
+                             Color="Orange" />
+
+            <!-- Navigation Buttons -->
+            <VerticalStackLayout Spacing="10">
+                <Button Text="📱 View All Habits" 
+                        Clicked="OnViewAllHabitsClicked" />
+                
+                <Button Text="📊 View Statistics" 
+                        Clicked="OnViewStatisticsClicked" />
+                
+                <Button Text="📅 Weekly View" 
+                        Clicked="OnWeeklyViewClicked" />
+            </VerticalStackLayout>
+
+            <!-- Debug Info (Development Only) -->
+            <Frame BackgroundColor="LightYellow" 
+                   Padding="10" 
+                   CornerRadius="5"
+                   IsVisible="{OnPlatform Default=False, WinUI=True}">
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="🐛 Debug Info" 
+                           FontAttributes="Bold" />
+                    <Label Text="{Binding Habits.Count, StringFormat='Local Habits: {0}'}" 
+                           FontSize="10" />
+                    <Label Text="{Binding TodayEntries.Count, StringFormat='Today Entries: {0}'}" 
+                           FontSize="10" />
+                    <Label Text="API: http://localhost:5266" 
+                           FontSize="10" />
+                    <Label Text="React: http://localhost:3000" 
+                           FontSize="10" />
+                </VerticalStackLayout>
+            </Frame>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

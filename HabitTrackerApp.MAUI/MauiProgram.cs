@@ -28,11 +28,16 @@ public static class MauiProgram
 		// Services
 		builder.Services.AddScoped<IHabitService, HabitService>();
 		
+		// Enhanced Sync Services
+		builder.Services.AddSingleton<SignalRSyncService>();
+		builder.Services.AddSingleton<EnhancedApiService>();
+		
 		// Register App for dependency injection
 		builder.Services.AddTransient<App>();
 
 		// ViewModels
 		builder.Services.AddTransient<HabitListViewModel>();
+		builder.Services.AddTransient<SyncEnabledHabitListViewModel>();
 		builder.Services.AddTransient<HabitDetailViewModel>();
 		builder.Services.AddTransient<DailyViewViewModel>();
 		builder.Services.AddTransient<WeeklyViewViewModel>();
@@ -41,6 +46,7 @@ public static class MauiProgram
 
 		// Views
 		builder.Services.AddTransient<MainPage>();
+		builder.Services.AddTransient<SyncEnabledMainPage>();
 		builder.Services.AddTransient<HabitListPage>();
 		builder.Services.AddTransient<HabitDetailPage>();
 		builder.Services.AddTransient<AddHabitPage>();
