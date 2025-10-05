@@ -1,0 +1,99 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Web (Vite)",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^([^\\s].*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE.*preparing",
+          "endsPattern": "Local:.*http://localhost"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "servers"
+      }
+    },
+    {
+      "label": "Start Desktop (Electron)",
+      "type": "shell",
+      "command": "npm run electron",
+      "isBackground": true,
+      "problemMatcher": [],
+      "dependsOn": "Start Web (Vite)",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "servers"
+      }
+    },
+    {
+      "label": "Open Android Studio",
+      "type": "shell",
+      "command": "npx cap open android",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "servers"
+      }
+    },
+    {
+      "label": "🚀 Start All Platforms",
+      "dependsOn": [
+        "Start Web (Vite)",
+        "Start Desktop (Electron)",
+        "Open Android Studio"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Build App",
+      "type": "shell",
+      "command": "npm run build",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$tsc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Sync to Mobile",
+      "type": "shell",
+      "command": "npx cap sync",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🔄 Build & Sync to Mobile",
+      "dependsOn": ["Build App", "Sync to Mobile"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    }
+  ]
+}

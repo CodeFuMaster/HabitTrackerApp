@@ -22,6 +22,15 @@ public class EnhancedHabitController : ControllerBase
     }
 
     /// <summary>
+    /// Health check endpoint
+    /// </summary>
+    [HttpGet("ping")]
+    public IActionResult Ping()
+    {
+        return Ok(new { status = "ok", timestamp = DateTime.UtcNow });
+    }
+
+    /// <summary>
     /// Initialize database with sample data for testing
     /// </summary>
     [HttpPost("initialize")]
@@ -291,4 +300,127 @@ public class EnhancedHabitController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Sync endpoint - accepts client changes and returns success response
+    /// </summary>
+    [HttpPost("sync")]
+    public async Task<IActionResult> Sync([FromBody] ClientChanges changes)
+    {
+        try
+        {
+            // Log what we received
+            Console.WriteLine($"Received sync request:");
+            Console.WriteLine($"  DeviceId: {changes?.DeviceId ?? "null"}");
+            Console.WriteLine($"  Habits: {changes?.Habits?.Count ?? 0}");
+            Console.WriteLine($"  Entries: {changes?.Entries?.Count ?? 0}");
+            Console.WriteLine($"  Categories: {changes?.Categories?.Count ?? 0}");
+
+            // Process client changes
+            if (changes == null)
+            {
+                return BadRequest(new { error = "No changes provided" });
+            }
+
+            // Save habits
+            if (changes.Habits != null && changes.Habits.Count > 0)
+            {
+                Console.WriteLine($"Saving {changes.Habits.Count} habits...");
+                foreach (var habit in changes.Habits)
+                {
+                    await _databaseService.SaveHabitAsync(habit);
+                }
+            }
+
+            // Save daily entries
+            if (changes.Entries != null && changes.Entries.Count > 0)
+            {
+                Console.WriteLine($"Saving {changes.Entries.Count} entries...");
+                foreach (var entry in changes.Entries)
+                {
+                    await _databaseService.SaveDailyEntryAsync(entry);
+                }
+            }
+
+            // Save categories
+            if (changes.Categories != null && changes.Categories.Count > 0)
+            {
+                Console.WriteLine($"Saving {changes.Categories.Count} categories...");
+                foreach (var category in changes.Categories)
+                {
+                    await _databaseService.SaveCategoryAsync(category);
+                }
+            }
+
+            Console.WriteLine("Sync completed successfully");
+
+            // Return success response
+            return Ok(new SyncResponse
+            {
+                Success = true,
+                Conflicts = new List<object>(),
+                ServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Sync error: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return StatusCode(500, new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    /// <summary>
+    /// Get changes since a specific timestamp
+    /// </summary>
+    [HttpGet("changes-since")]
+    public async Task<IActionResult> GetChangesSince([FromQuery] long timestamp, [FromQuery] string deviceId)
+    {
+        try
+        {
+            // Get all data (simplified - in production would filter by timestamp)
+            var habits = await _databaseService.GetHabitsAsync();
+            var categories = await _databaseService.GetCategoriesAsync();
+
+            return Ok(new SyncChanges
+            {
+                Habits = habits,
+                Entries = new List<DailyHabitEntry>(),
+                Categories = categories,
+                RoutineSessions = new List<RoutineSession>(),
+                ServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+}
+
+// DTOs for sync
+public class ClientChanges
+{
+    public string DeviceId { get; set; } = string.Empty;
+    public long LastSyncTimestamp { get; set; }
+    public List<Habit> Habits { get; set; } = new();
+    public List<DailyHabitEntry> Entries { get; set; } = new();
+    public List<Category> Categories { get; set; } = new();
+    public List<RoutineSession> RoutineSessions { get; set; } = new();
+}
+
+public class SyncResponse
+{
+    public bool Success { get; set; }
+    public List<object> Conflicts { get; set; } = new();
+    public long ServerTimestamp { get; set; }
+}
+
+public class SyncChanges
+{
+    public List<Habit> Habits { get; set; } = new();
+    public List<DailyHabitEntry> Entries { get; set; } = new();
+    public List<Category> Categories { get; set; } = new();
+    public List<RoutineSession> RoutineSessions { get; set; } = new();
+    public long ServerTimestamp { get; set; }
 }

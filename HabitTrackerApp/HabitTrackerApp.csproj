@@ -24,10 +24,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HabitTrackerApp.Core\HabitTrackerApp.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Remove="Maui\**" />
     <EmbeddedResource Remove="Maui\**" />
     <None Remove="Maui\**" />
