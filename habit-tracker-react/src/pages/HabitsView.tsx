@@ -17,6 +17,7 @@ import {
   Select,
   MenuItem,
   FormControl,
+  FormGroup,
   InputLabel,
   Switch,
   FormControlLabel,
@@ -24,6 +25,7 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  Checkbox,
 } from '@mui/material';
 import {
   Add,
@@ -62,41 +64,97 @@ export default function HabitsView() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [exerciseManagerOpen, setExerciseManagerOpen] = useState(false);
   const [selectedHabitForExercises, setSelectedHabitForExercises] = useState<Habit | null>(null);
+  const [monthlyDaysInput, setMonthlyDaysInput] = useState('');
 
   // Form state
   const [formData, setFormData] = useState<Partial<Habit>>({
     name: '',
     description: '',
+    shortDescription: '',
     categoryId: undefined,
     recurrenceType: RecurrenceEnum.Daily,
+    recurrenceInterval: 1,
+    specificDaysOfWeek: [],
+    specificDaysOfMonth: [],
     timeOfDay: '',
+    timeOfDayEnd: '',
     duration: undefined,
     isActive: true,
     color: '#6366F1',
     reminderEnabled: false,
+    reminderTime: '',
     tags: [],
+    icon: '',
+    imageUrl: '',
   });
+
+  const dayOptions = [
+    { label: 'Sun', value: 0 },
+    { label: 'Mon', value: 1 },
+    { label: 'Tue', value: 2 },
+    { label: 'Wed', value: 3 },
+    { label: 'Thu', value: 4 },
+    { label: 'Fri', value: 5 },
+    { label: 'Sat', value: 6 },
+  ];
+
+  const handleToggleDay = (day: number) => {
+    const current = formData.specificDaysOfWeek || [];
+    const exists = current.includes(day);
+    const updated = exists ? current.filter((d) => d !== day) : [...current, day];
+    updated.sort((a, b) => a - b);
+    setFormData({ ...formData, specificDaysOfWeek: updated });
+  };
+
+  const handleMonthlyDaysChange = (rawValue: string) => {
+    setMonthlyDaysInput(rawValue);
+    const values = rawValue
+      .split(',')
+      .map((value) => parseInt(value.trim(), 10))
+      .filter((value) => !Number.isNaN(value) && value >= 1 && value <= 31);
+    const uniqueSorted = Array.from(new Set(values)).sort((a, b) => a - b);
+    setFormData({ ...formData, specificDaysOfMonth: uniqueSorted });
+  };
+
+  const handleRecurrenceIntervalChange = (value: string) => {
+    const parsed = parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed <= 0) {
+      setFormData({ ...formData, recurrenceInterval: undefined });
+    } else {
+      setFormData({ ...formData, recurrenceInterval: parsed });
+    }
+  };
 
   const handleOpenNew = () => {
     setEditingHabit(null);
     setFormData({
       name: '',
       description: '',
+      shortDescription: '',
       categoryId: undefined,
       recurrenceType: RecurrenceEnum.Daily,
+      recurrenceInterval: 1,
+      specificDaysOfWeek: [],
+      specificDaysOfMonth: [],
       timeOfDay: '',
+      timeOfDayEnd: '',
       duration: undefined,
       isActive: true,
       color: '#6366F1',
       reminderEnabled: false,
+      reminderTime: '',
       tags: [],
+      icon: '',
+      imageUrl: '',
     });
+    setMonthlyDaysInput('');
     setOpenDialog(true);
   };
 
   const handleEdit = (habit: Habit) => {
     setEditingHabit(habit);
     setFormData(habit);
+    setMonthlyDaysInput(habit.specificDaysOfMonth?.join(',') || '');
     setOpenDialog(true);
   };
 
@@ -116,13 +174,21 @@ export default function HabitsView() {
           id: 0, // Will be assigned by sync service
           name: formData.name || '',
           description: formData.description,
+          shortDescription: formData.shortDescription,
           categoryId: formData.categoryId,
           recurrenceType: formData.recurrenceType || RecurrenceEnum.Daily,
+          recurrenceInterval: formData.recurrenceInterval,
+          specificDaysOfWeek: formData.specificDaysOfWeek?.length ? formData.specificDaysOfWeek : undefined,
+          specificDaysOfMonth: formData.specificDaysOfMonth?.length ? formData.specificDaysOfMonth : undefined,
           timeOfDay: formData.timeOfDay,
+          timeOfDayEnd: formData.timeOfDayEnd,
           duration: formData.duration,
           isActive: formData.isActive ?? true,
           color: formData.color || '#6366F1',
+          icon: formData.icon,
+          imageUrl: formData.imageUrl,
           reminderEnabled: formData.reminderEnabled ?? false,
+          reminderTime: formData.reminderTime || undefined,
           tags: formData.tags || [],
           createdDate: new Date().toISOString(),
         };
@@ -292,6 +358,14 @@ export default function HabitsView() {
               rows={3}
             />
 
+            <TextField
+              label="Short Description"
+              value={formData.shortDescription || ''}
+              onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
+              fullWidth
+              helperText="Optional subtitle shown in overview cards"
+            />
+
             <FormControl fullWidth>
               <InputLabel>Category</InputLabel>
               <Select
@@ -322,6 +396,47 @@ export default function HabitsView() {
               </Select>
             </FormControl>
 
+            <TextField
+              label="Repeat Every"
+              type="number"
+              value={formData.recurrenceInterval ?? ''}
+              onChange={(e) => handleRecurrenceIntervalChange(e.target.value)}
+              fullWidth
+              helperText="Number of days/weeks/months between occurrences"
+            />
+
+            {(formData.recurrenceType === RecurrenceEnum.Weekly || formData.recurrenceType === RecurrenceEnum.SpecificDays) && (
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Days of Week
+                </Typography>
+                <FormGroup row>
+                  {dayOptions.map((day) => (
+                    <FormControlLabel
+                      key={day.value}
+                      control={
+                        <Checkbox
+                          checked={formData.specificDaysOfWeek?.includes(day.value) || false}
+                          onChange={() => handleToggleDay(day.value)}
+                        />
+                      }
+                      label={day.label}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
+            )}
+
+            {formData.recurrenceType === RecurrenceEnum.Monthly && (
+              <TextField
+                label="Days of Month"
+                value={monthlyDaysInput}
+                onChange={(e) => handleMonthlyDaysChange(e.target.value)}
+                fullWidth
+                helperText="Comma-separated values (e.g., 1, 15, 30)"
+              />
+            )}
+
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <TextField
@@ -335,11 +450,39 @@ export default function HabitsView() {
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
+                  label="End Time"
+                  type="time"
+                  value={formData.timeOfDayEnd || ''}
+                  onChange={(e) => setFormData({ ...formData, timeOfDayEnd: e.target.value })}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+            </Grid>
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 6 }}>
+                <TextField
                   label="Duration (minutes)"
                   type="number"
-                  value={formData.duration || ''}
-                  onChange={(e) => setFormData({ ...formData, duration: Number(e.target.value) })}
+                  value={formData.duration ?? ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setFormData({
+                      ...formData,
+                      duration: raw === '' ? undefined : Number(raw),
+                    });
+                  }}
                   fullWidth
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  label="Icon"
+                  value={formData.icon || ''}
+                  onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                  fullWidth
+                  helperText="Emoji or short code, e.g., 🏃‍♀️"
                 />
               </Grid>
             </Grid>
@@ -350,6 +493,14 @@ export default function HabitsView() {
               value={formData.color}
               onChange={(e) => setFormData({ ...formData, color: e.target.value })}
               fullWidth
+            />
+
+            <TextField
+              label="Image URL"
+              value={formData.imageUrl || ''}
+              onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+              fullWidth
+              helperText="Optional cover image"
             />
 
             <TextField
@@ -382,6 +533,17 @@ export default function HabitsView() {
               }
               label="Enable Reminder"
             />
+
+            {formData.reminderEnabled && (
+              <TextField
+                label="Reminder Time"
+                type="time"
+                value={formData.reminderTime || ''}
+                onChange={(e) => setFormData({ ...formData, reminderTime: e.target.value })}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            )}
 
             {/* Custom Metrics Section */}
             <Divider sx={{ my: 3 }} />
