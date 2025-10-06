@@ -32,6 +32,7 @@ import {
   ContentCopy,
   Archive,
   Unarchive,
+  FitnessCenter,
 } from '@mui/icons-material';
 import { 
   useHabits, 
@@ -46,6 +47,7 @@ import { RecurrenceType as RecurrenceEnum } from '../types/habit.types';
 import CustomMetricsManager from '../components/CustomMetricsManager';
 import RoutineTemplateManager from '../components/RoutineTemplateManager';
 import ReminderManager from '../components/ReminderManager';
+import ExerciseManager from '../components/ExerciseManager';
 
 export default function HabitsView() {
   const { habits, isLoading } = useHabits();
@@ -58,6 +60,8 @@ export default function HabitsView() {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [exerciseManagerOpen, setExerciseManagerOpen] = useState(false);
+  const [selectedHabitForExercises, setSelectedHabitForExercises] = useState<Habit | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<Partial<Habit>>({
@@ -145,6 +149,11 @@ export default function HabitsView() {
     } catch (error) {
       console.error('Failed to duplicate habit:', error);
     }
+  };
+
+  const handleManageExercises = (habit: Habit) => {
+    setSelectedHabitForExercises(habit);
+    setExerciseManagerOpen(true);
   };
 
   if (isLoading || isCreating || isUpdating || isDeleting || isDuplicating) {
@@ -240,6 +249,9 @@ export default function HabitsView() {
               <CardActions>
                 <IconButton size="small" onClick={() => handleEdit(habit)} title="Edit">
                   <Edit fontSize="small" />
+                </IconButton>
+                <IconButton size="small" onClick={() => handleManageExercises(habit)} title="Manage Exercises">
+                  <FitnessCenter fontSize="small" />
                 </IconButton>
                 <IconButton size="small" onClick={() => handleDuplicate(habit)} title="Duplicate">
                   <ContentCopy fontSize="small" />
@@ -453,6 +465,25 @@ export default function HabitsView() {
             Delete
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Exercise Manager Dialog */}
+      <Dialog 
+        open={exerciseManagerOpen} 
+        onClose={() => setExerciseManagerOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>Manage Exercises</DialogTitle>
+        <DialogContent>
+          {selectedHabitForExercises && (
+            <ExerciseManager
+              habitId={selectedHabitForExercises.id}
+              habitName={selectedHabitForExercises.name}
+              onClose={() => setExerciseManagerOpen(false)}
+            />
+          )}
+        </DialogContent>
       </Dialog>
     </Container>
   );

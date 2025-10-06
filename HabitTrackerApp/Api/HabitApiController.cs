@@ -1,7 +1,9 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using HabitTrackerApp.Data;
 using HabitTrackerApp.Models;
+using HabitTrackerApp.ViewModels;
 
 namespace HabitTrackerApp.Api
 {
@@ -22,6 +24,210 @@ namespace HabitTrackerApp.Api
             _logger = logger;
         }
 
+        private static readonly string[] DayNames = Enum.GetNames(typeof(DayOfWeek));
+
+        private static HabitDto MapHabitToDto(Habit habit)
+        {
+            return new HabitDto
+            {
+                Id = habit.Id,
+                Name = habit.Name,
+                Description = habit.Description,
+                ShortDescription = habit.ShortDescription,
+                HabitType = habit.HabitType,
+                RecurrenceType = habit.RecurrenceType,
+                RecurrenceInterval = habit.RecurrenceInterval,
+                WeeklyDays = habit.WeeklyDays,
+                MonthlyDays = habit.MonthlyDays,
+                SpecificDaysOfWeek = WeeklyDaysToNumbers(habit.WeeklyDays),
+                SpecificDaysOfMonth = MonthlyDaysToNumbers(habit.MonthlyDays),
+                SpecificDate = habit.SpecificDate,
+                TimeOfDay = FormatTime(habit.TimeOfDay),
+                TimeOfDayEnd = FormatTime(habit.TimeOfDayEnd),
+                DurationMinutes = habit.DurationMinutes,
+                CategoryId = habit.CategoryId,
+                Tags = habit.Tags,
+                ImageUrl = habit.ImageUrl,
+                Color = habit.Color,
+                Icon = habit.Icon,
+                ReminderEnabled = habit.ReminderEnabled,
+                ReminderTime = FormatTime(habit.ReminderTime),
+                IsActive = !habit.IsDeleted,
+                IsDeleted = habit.IsDeleted,
+                CreatedDate = habit.CreatedDate,
+                LastModifiedDate = habit.LastModifiedDate,
+                DeviceId = habit.DeviceId,
+                SyncStatus = habit.SyncStatus
+            };
+        }
+
+        private static void ApplyDtoToHabit(Habit habit, HabitDto dto, bool isNew)
+        {
+            if (!string.IsNullOrWhiteSpace(dto.Name))
+            {
+                habit.Name = dto.Name;
+            }
+            habit.Description = NormalizeOptionalString(dto.Description);
+            habit.ShortDescription = NormalizeOptionalString(dto.ShortDescription);
+            habit.HabitType = dto.HabitType;
+            habit.RecurrenceType = dto.RecurrenceType;
+            habit.RecurrenceInterval = dto.RecurrenceInterval.HasValue && dto.RecurrenceInterval.Value > 0
+                ? dto.RecurrenceInterval
+                : null;
+            habit.WeeklyDays = NormalizeOptionalString(dto.WeeklyDays) ?? NumbersToWeeklyDaysString(dto.SpecificDaysOfWeek);
+            habit.MonthlyDays = NormalizeOptionalString(dto.MonthlyDays) ?? NumbersToMonthlyDaysString(dto.SpecificDaysOfMonth);
+            habit.SpecificDate = dto.SpecificDate;
+            habit.TimeOfDay = ParseTimeString(dto.TimeOfDay);
+            habit.TimeOfDayEnd = ParseTimeString(dto.TimeOfDayEnd);
+            habit.DurationMinutes = dto.DurationMinutes.HasValue && dto.DurationMinutes.Value > 0
+                ? dto.DurationMinutes
+                : null;
+            habit.CategoryId = dto.CategoryId.HasValue && dto.CategoryId.Value > 0
+                ? dto.CategoryId.Value
+                : null;
+            habit.Tags = NormalizeOptionalString(dto.Tags);
+            habit.ImageUrl = NormalizeOptionalString(dto.ImageUrl);
+            habit.Color = NormalizeOptionalString(dto.Color);
+            habit.Icon = NormalizeOptionalString(dto.Icon);
+            habit.ReminderEnabled = dto.ReminderEnabled;
+            habit.ReminderTime = ParseTimeString(dto.ReminderTime);
+
+            var isDeleted = dto.IsDeleted;
+            if (!isDeleted && dto.IsActive == false)
+            {
+                isDeleted = true;
+            }
+            habit.IsDeleted = isDeleted;
+
+            habit.DeviceId = NormalizeOptionalString(dto.DeviceId);
+            habit.SyncStatus = NormalizeOptionalString(dto.SyncStatus);
+
+            if (dto.CreatedDate.HasValue)
+            {
+                habit.CreatedDate = dto.CreatedDate.Value;
+            }
+            else if (isNew && habit.CreatedDate == default)
+            {
+                habit.CreatedDate = DateTimeOffset.UtcNow;
+            }
+
+            habit.LastModifiedDate = dto.LastModifiedDate ?? DateTimeOffset.UtcNow;
+        }
+
+        private static string? FormatTime(TimeSpan? value)
+        {
+            return value?.ToString("hh\\:mm", CultureInfo.InvariantCulture);
+        }
+
+        private static TimeSpan? ParseTimeString(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            if (TimeSpan.TryParseExact(value, "hh\\:mm", CultureInfo.InvariantCulture, out var exact))
+            {
+                return exact;
+            }
+
+            if (TimeSpan.TryParseExact(value, "hh\\:mm\\:ss", CultureInfo.InvariantCulture, out var withSeconds))
+            {
+                return withSeconds;
+            }
+
+            if (TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var fallback))
+            {
+                return fallback;
+            }
+
+            return null;
+        }
+
+        private static int[]? WeeklyDaysToNumbers(string? weeklyDays)
+        {
+            if (string.IsNullOrWhiteSpace(weeklyDays))
+            {
+                return null;
+            }
+
+            var indices = weeklyDays
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(day => day.Trim())
+                .Where(day => day.Length > 0)
+                .Select(day => Array.FindIndex(DayNames, name => string.Equals(name, day, StringComparison.OrdinalIgnoreCase)))
+                .Where(index => index >= 0)
+                .Distinct()
+                .OrderBy(index => index)
+                .ToArray();
+
+            return indices.Length > 0 ? indices : null;
+        }
+
+        private static int[]? MonthlyDaysToNumbers(string? monthlyDays)
+        {
+            if (string.IsNullOrWhiteSpace(monthlyDays))
+            {
+                return null;
+            }
+
+            var values = monthlyDays
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(day => day.Trim())
+                .Select(day => int.TryParse(day, out var number) ? number : (int?)null)
+                .Where(number => number.HasValue)
+                .Select(number => number!.Value)
+                .Where(number => number >= 1 && number <= 31)
+                .Distinct()
+                .OrderBy(number => number)
+                .ToArray();
+
+            return values.Length > 0 ? values : null;
+        }
+
+        private static string? NumbersToWeeklyDaysString(IEnumerable<int>? days)
+        {
+            if (days == null)
+            {
+                return null;
+            }
+
+            var ordered = days
+                .Where(day => day >= 0 && day < DayNames.Length)
+                .Distinct()
+                .OrderBy(day => day)
+                .Select(day => DayNames[day])
+                .ToArray();
+
+            return ordered.Length > 0 ? string.Join(',', ordered) : null;
+        }
+
+        private static string? NumbersToMonthlyDaysString(IEnumerable<int>? days)
+        {
+            if (days == null)
+            {
+                return null;
+            }
+
+            var ordered = days
+                .Where(day => day >= 1 && day <= 31)
+                .Distinct()
+                .OrderBy(day => day)
+                .ToArray();
+
+            return ordered.Length > 0 ? string.Join(',', ordered) : null;
+        }
+
+        private static string? NormalizeOptionalString(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            return value.Trim();
+        }
+
         /// <summary>
         /// Health check endpoint
         /// </summary>
@@ -35,7 +241,7 @@ namespace HabitTrackerApp.Api
         /// Get all habits (including soft-deleted for sync purposes)
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Habit>>> GetHabits()
+        public async Task<ActionResult<IEnumerable<HabitDto>>> GetHabits()
         {
             try
             {
@@ -46,7 +252,8 @@ namespace HabitTrackerApp.Api
                     .ToListAsync();
 
                 _logger.LogInformation($"Retrieved {habits.Count} habits for sync");
-                return Ok(habits);
+                var results = habits.Select(MapHabitToDto).ToList();
+                return Ok(results);
             }
             catch (Exception ex)
             {
@@ -59,7 +266,7 @@ namespace HabitTrackerApp.Api
         /// Get a single habit by ID
         /// </summary>
         [HttpGet("{id}")]
-        public async Task<ActionResult<Habit>> GetHabit(int id)
+        public async Task<ActionResult<HabitDto>> GetHabit(int id)
         {
             try
             {
@@ -74,7 +281,7 @@ namespace HabitTrackerApp.Api
                     return NotFound();
                 }
 
-                return Ok(habit);
+                return Ok(MapHabitToDto(habit));
             }
             catch (Exception ex)
             {
@@ -87,23 +294,39 @@ namespace HabitTrackerApp.Api
         /// Create a new habit
         /// </summary>
         [HttpPost]
-        public async Task<ActionResult<Habit>> CreateHabit([FromBody] Habit habit)
+        public async Task<ActionResult<HabitDto>> CreateHabit([FromBody] HabitDto habitDto)
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(habitDto.Name))
+                {
+                    ModelState.AddModelError(nameof(habitDto.Name), "Name is required.");
+                }
+
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
                 }
 
-                habit.CreatedDate = DateTimeOffset.UtcNow;
-                habit.LastModifiedDate = DateTimeOffset.UtcNow;
+                var habit = new Habit();
+                ApplyDtoToHabit(habit, habitDto, isNew: true);
+
+                if (habit.CreatedDate == default)
+                {
+                    habit.CreatedDate = DateTimeOffset.UtcNow;
+                }
+
+                if (habit.LastModifiedDate == default)
+                {
+                    habit.LastModifiedDate = DateTimeOffset.UtcNow;
+                }
 
                 _context.Habits.Add(habit);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Created habit: {habit.Name} (ID: {habit.Id})");
-                return CreatedAtAction(nameof(GetHabit), new { id = habit.Id }, habit);
+                var result = MapHabitToDto(habit);
+                _logger.LogInformation($"Created habit: {result.Name} (ID: {result.Id})");
+                return CreatedAtAction(nameof(GetHabit), new { id = result.Id }, result);
             }
             catch (Exception ex)
             {
@@ -116,13 +339,28 @@ namespace HabitTrackerApp.Api
         /// Update an existing habit
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateHabit(int id, [FromBody] Habit habit)
+        public async Task<ActionResult<HabitDto>> UpdateHabit(int id, [FromBody] HabitDto habitDto)
         {
             try
             {
-                if (id != habit.Id)
+                if (habitDto == null)
+                {
+                    return BadRequest("Habit payload is required");
+                }
+
+                if (habitDto.Id != 0 && id != habitDto.Id)
                 {
                     return BadRequest("ID mismatch");
+                }
+
+                if (string.IsNullOrWhiteSpace(habitDto.Name))
+                {
+                    ModelState.AddModelError(nameof(habitDto.Name), "Name is required.");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
                 }
 
                 var existingHabit = await _context.Habits.FindAsync(id);
@@ -131,26 +369,17 @@ namespace HabitTrackerApp.Api
                     return NotFound();
                 }
 
-                // Update only the fields that exist in PostgreSQL model
-                existingHabit.Name = habit.Name;
-                existingHabit.Description = habit.Description;
-                existingHabit.ShortDescription = habit.ShortDescription;
-                existingHabit.RecurrenceType = habit.RecurrenceType;
-                existingHabit.WeeklyDays = habit.WeeklyDays;
-                existingHabit.MonthlyDays = habit.MonthlyDays;
-                existingHabit.SpecificDate = habit.SpecificDate;
-                existingHabit.TimeOfDay = habit.TimeOfDay;
-                existingHabit.TimeOfDayEnd = habit.TimeOfDayEnd;
-                existingHabit.CategoryId = habit.CategoryId;
-                existingHabit.Tags = habit.Tags;
-                existingHabit.ImageUrl = habit.ImageUrl;
-                existingHabit.IsDeleted = habit.IsDeleted;
-                existingHabit.LastModifiedDate = DateTimeOffset.UtcNow;
+                ApplyDtoToHabit(existingHabit, habitDto, isNew: false);
+                if (existingHabit.LastModifiedDate == default)
+                {
+                    existingHabit.LastModifiedDate = DateTimeOffset.UtcNow;
+                }
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Updated habit: {habit.Name} (ID: {id})");
-                return NoContent();
+                var result = MapHabitToDto(existingHabit);
+                _logger.LogInformation($"Updated habit: {result.Name} (ID: {id})");
+                return Ok(result);
             }
             catch (Exception ex)
             {

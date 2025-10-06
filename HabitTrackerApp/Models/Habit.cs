@@ -13,17 +13,30 @@ namespace HabitTrackerApp.Models
         OneTime
     }
 
+    public enum HabitType
+    {
+        Simple,       // Regular habit (just complete/incomplete)
+        Routine,      // ATG, Wim Hof - checklist of exercises
+        Gym,          // Detailed sets/reps/weight logging
+        MartialArts,  // Attendance + duration + drills
+        Learning      // Time + topics + resources
+    }
+
     public class Habit
     {
         public int Id { get; set; }
 
         // Basic Info
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public string ShortDescription { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? ShortDescription { get; set; }
+
+        // Habit Type (determines UI behavior)
+        public HabitType HabitType { get; set; } = HabitType.Simple;
 
         // Recurrence
         public RecurrenceType RecurrenceType { get; set; } = RecurrenceType.Daily;
+        public int? RecurrenceInterval { get; set; }
 
         // For Weekly: comma-separated days (e.g. "Monday,Friday")
         public string? WeeklyDays { get; set; }
@@ -38,15 +51,26 @@ namespace HabitTrackerApp.Models
         public TimeSpan? TimeOfDay { get; set; }
         public TimeSpan? TimeOfDayEnd { get; set; }
 
+        // Duration (minutes)
+        public int? DurationMinutes { get; set; }
+
         // Category
         public int? CategoryId { get; set; }
         public Category? Category { get; set; }
 
         // Tags field (comma-separated)
-        public string Tags { get; set; }
+        public string? Tags { get; set; }
+
+        // Visual metadata
+        public string? Color { get; set; }
+        public string? Icon { get; set; }
 
         // Image URL
-        public string ImageUrl { get; set; }
+        public string? ImageUrl { get; set; }
+
+        // Reminders
+        public bool ReminderEnabled { get; set; }
+        public TimeSpan? ReminderTime { get; set; }
 
         //Soft-delete flag
         public bool IsDeleted { get; set; }
@@ -54,8 +78,15 @@ namespace HabitTrackerApp.Models
         public DateTimeOffset CreatedDate { get; set; }
         public DateTimeOffset LastModifiedDate { get; set; }
 
+        // Sync metadata
+        public string? DeviceId { get; set; }
+        public string? SyncStatus { get; set; }
+
         // Navigation property for daily habit entries
         public ICollection<DailyHabitEntry>? DailyHabitEntries { get; set; }
+
+        // Navigation property for exercises (sub-habits)
+        public ICollection<Exercise>? Exercises { get; set; }
 
         // Helper method to check if the habit occurs on a specific date.
         public bool OccursOn(DateTime date)

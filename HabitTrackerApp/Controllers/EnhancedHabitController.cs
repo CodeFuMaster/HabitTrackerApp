@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using HabitTrackerApp.Core.Data;
 using HabitTrackerApp.Core.Services;
 using HabitTrackerApp.Core.Models;
 using HabitTrackerApp.Core.Models.Enhanced;
+using HabitTrackerApp.Models;
+using HabitTrackerApp.Data;
 
 namespace HabitTrackerApp.Controllers;
 
@@ -15,10 +18,12 @@ namespace HabitTrackerApp.Controllers;
 public class EnhancedHabitController : ControllerBase
 {
     private readonly DatabaseService _databaseService;
+    private readonly AppDbContext _context;
 
-    public EnhancedHabitController(DatabaseService databaseService)
+    public EnhancedHabitController(DatabaseService databaseService, AppDbContext context)
     {
         _databaseService = databaseService;
+        _context = context;
     }
 
     /// <summary>
@@ -352,6 +357,58 @@ public class EnhancedHabitController : ControllerBase
                 }
             }
 
+            // Save exercises
+            if (changes.Exercises != null && changes.Exercises.Count > 0)
+            {
+                Console.WriteLine($"Saving {changes.Exercises.Count} exercises...");
+                foreach (var exercise in changes.Exercises)
+                {
+                    if (exercise.Id == 0)
+                    {
+                        _context.Exercises.Add(exercise);
+                    }
+                    else
+                    {
+                        var existing = await _context.Exercises.FindAsync(exercise.Id);
+                        if (existing != null)
+                        {
+                            _context.Entry(existing).CurrentValues.SetValues(exercise);
+                        }
+                        else
+                        {
+                            _context.Exercises.Add(exercise);
+                        }
+                    }
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            // Save exercise logs
+            if (changes.ExerciseLogs != null && changes.ExerciseLogs.Count > 0)
+            {
+                Console.WriteLine($"Saving {changes.ExerciseLogs.Count} exercise logs...");
+                foreach (var log in changes.ExerciseLogs)
+                {
+                    if (log.Id == 0)
+                    {
+                        _context.ExerciseLogs.Add(log);
+                    }
+                    else
+                    {
+                        var existing = await _context.ExerciseLogs.FindAsync(log.Id);
+                        if (existing != null)
+                        {
+                            _context.Entry(existing).CurrentValues.SetValues(log);
+                        }
+                        else
+                        {
+                            _context.ExerciseLogs.Add(log);
+                        }
+                    }
+                }
+                await _context.SaveChangesAsync();
+            }
+
             Console.WriteLine("Sync completed successfully");
 
             // Return success response
@@ -381,13 +438,17 @@ public class EnhancedHabitController : ControllerBase
             // Get all data (simplified - in production would filter by timestamp)
             var habits = await _databaseService.GetHabitsAsync();
             var categories = await _databaseService.GetCategoriesAsync();
+            var exercises = await _context.Exercises.Where(e => e.IsActive).ToListAsync();
+            var exerciseLogs = await _context.ExerciseLogs.ToListAsync();
 
             return Ok(new SyncChanges
             {
                 Habits = habits,
-                Entries = new List<DailyHabitEntry>(),
+                Entries = new List<HabitTrackerApp.Core.Models.DailyHabitEntry>(),
                 Categories = categories,
                 RoutineSessions = new List<RoutineSession>(),
+                Exercises = exercises,
+                ExerciseLogs = exerciseLogs,
                 ServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             });
         }
@@ -398,15 +459,17 @@ public class EnhancedHabitController : ControllerBase
     }
 }
 
-// DTOs for sync
+// DTOs for sync - using Core models for compatibility
 public class ClientChanges
 {
     public string DeviceId { get; set; } = string.Empty;
     public long LastSyncTimestamp { get; set; }
-    public List<Habit> Habits { get; set; } = new();
-    public List<DailyHabitEntry> Entries { get; set; } = new();
-    public List<Category> Categories { get; set; } = new();
+    public List<HabitTrackerApp.Core.Models.Habit> Habits { get; set; } = new();
+    public List<HabitTrackerApp.Core.Models.DailyHabitEntry> Entries { get; set; } = new();
+    public List<HabitTrackerApp.Core.Models.Category> Categories { get; set; } = new();
     public List<RoutineSession> RoutineSessions { get; set; } = new();
+    public List<HabitTrackerApp.Models.Exercise> Exercises { get; set; } = new();
+    public List<HabitTrackerApp.Models.ExerciseLog> ExerciseLogs { get; set; } = new();
 }
 
 public class SyncResponse
@@ -418,9 +481,11 @@ public class SyncResponse
 
 public class SyncChanges
 {
-    public List<Habit> Habits { get; set; } = new();
-    public List<DailyHabitEntry> Entries { get; set; } = new();
-    public List<Category> Categories { get; set; } = new();
+    public List<HabitTrackerApp.Core.Models.Habit> Habits { get; set; } = new();
+    public List<HabitTrackerApp.Core.Models.DailyHabitEntry> Entries { get; set; } = new();
+    public List<HabitTrackerApp.Core.Models.Category> Categories { get; set; } = new();
     public List<RoutineSession> RoutineSessions { get; set; } = new();
+    public List<HabitTrackerApp.Models.Exercise> Exercises { get; set; } = new();
+    public List<HabitTrackerApp.Models.ExerciseLog> ExerciseLogs { get; set; } = new();
     public long ServerTimestamp { get; set; }
 }

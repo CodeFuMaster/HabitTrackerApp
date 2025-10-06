@@ -10,6 +10,7 @@ import type {
   ActivityLog,
   RoutineTemplate
 } from '../types/habit.types';
+import { mapHabitToServer, normalizeHabitFromServer } from '../utils/habitMapper';
 
 class SyncService {
   private lastSyncTimestamp = 0;
@@ -90,6 +91,59 @@ class SyncService {
     }
   }
 
+  async fullSync(): Promise<{ success: boolean; message: string }> {
+    console.log('🔄 Starting FULL sync (resetting timestamp)...');
+    
+    try {
+      // Check if server is online
+      const isOnline = await this.isServerOnline();
+      if (!isOnline) {
+        return { success: false, message: 'Server offline - working in offline mode' };
+      }
+
+      console.log('📥 Loading ALL data from server...');
+      
+      // Load habits directly from API
+      const habits = await apiService.getHabits();
+      console.log(`✅ Loaded ${habits.length} habits from server`);
+      for (const habit of habits.map(normalizeHabitFromServer)) {
+        await offlineDb.saveHabit(habit);
+      }
+
+      // Load categories
+      const categories = await apiService.getCategories();
+      console.log(`✅ Loaded ${categories.length} categories from server`);
+      for (const category of categories) {
+        await offlineDb.saveCategory(category);
+      }
+
+      // Try to load today's entries (optional - endpoint may not exist)
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const entries = await apiService.getDailyEntries(today);
+        console.log(`✅ Loaded ${entries.length} entries for today`);
+        for (const entry of entries) {
+          await offlineDb.saveDailyEntry(entry);
+        }
+      } catch (entryError) {
+        console.log('⚠️ Could not load entries (endpoint may not exist), skipping...');
+      }
+
+      // Reset sync timestamp
+      this.lastSyncTimestamp = Date.now();
+      await offlineDb.setSetting('lastSyncTimestamp', this.lastSyncTimestamp.toString());
+
+      console.log('✅ Full sync completed successfully!');
+      return { success: true, message: `Full sync completed - loaded ${habits.length} habits` };
+    } catch (error) {
+      console.error('❌ Full sync failed:', error);
+      return { 
+        success: false, 
+        message: `Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      };
+    }
+  }
+
   private async pushLocalChanges(): Promise<void> {
     const pendingChanges = await offlineDb.getPendingChanges();
     
@@ -105,19 +159,27 @@ class SyncService {
     // Group changes by type
     const habitChanges: any[] = [];
     const entryChanges: any[] = [];
+    const exerciseChanges: any[] = [];
+    const exerciseLogChanges: any[] = [];
     
     for (const change of pendingChanges) {
       if (change.tableName === 'habits') {
         const habit = await offlineDb.getHabit(change.recordId);
-        if (habit) habitChanges.push(habit);
+        if (habit) habitChanges.push(mapHabitToServer(habit));
       } else if (change.tableName === 'daily_entries') {
         // Get entry details - would need to add this method
         entryChanges.push(change);
+      } else if (change.tableName === 'exercises') {
+        const exercise = await offlineDb.getExercise(change.recordId);
+        if (exercise) exerciseChanges.push(exercise);
+      } else if (change.tableName === 'exercise_logs') {
+        const log = await offlineDb.getExerciseLog(change.recordId);
+        if (log) exerciseLogChanges.push(log);
       }
     }
 
     // Send to server
-    if (habitChanges.length > 0 || entryChanges.length > 0) {
+    if (habitChanges.length > 0 || entryChanges.length > 0 || exerciseChanges.length > 0 || exerciseLogChanges.length > 0) {
       await apiService.syncChanges({
         deviceId,
         lastSyncTimestamp: this.lastSyncTimestamp,
@@ -125,6 +187,8 @@ class SyncService {
         entries: entryChanges,
         categories: [],
         routineSessions: [],
+        exercises: exerciseChanges,
+        exerciseLogs: exerciseLogChanges,
       });
 
       // Mark as synced
@@ -146,7 +210,8 @@ class SyncService {
 
     // Habits
     for (const habit of serverChanges.habits) {
-      await offlineDb.saveHabit(habit);
+      const normalizedHabit = normalizeHabitFromServer(habit);
+      await offlineDb.saveHabit(normalizedHabit);
       changesApplied++;
     }
 
@@ -162,6 +227,22 @@ class SyncService {
       changesApplied++;
     }
 
+    // Exercises
+    if (serverChanges.exercises) {
+      for (const exercise of serverChanges.exercises) {
+        await offlineDb.saveExercise(exercise);
+        changesApplied++;
+      }
+    }
+
+    // Exercise Logs
+    if (serverChanges.exerciseLogs) {
+      for (const log of serverChanges.exerciseLogs) {
+        await offlineDb.saveExerciseLog(log);
+        changesApplied++;
+      }
+    }
+
     console.log(`Applied ${changesApplied} changes from server`);
   }
 
@@ -175,7 +256,16 @@ class SyncService {
   }
 
   async saveHabit(habit: Habit): Promise<void> {
-    await offlineDb.saveHabit(habit);
+    const timestamp = new Date().toISOString();
+    const habitToSave: Habit = {
+      ...habit,
+      lastModifiedDate: habit.lastModifiedDate ?? timestamp,
+      syncStatus: habit.syncStatus ?? 'pending',
+      reminderEnabled: habit.reminderEnabled ?? false,
+      isActive: habit.isActive ?? true,
+    };
+
+    await offlineDb.saveHabit(habitToSave);
     
     // Try immediate sync
     if (await this.isServerOnline()) {
@@ -232,11 +322,15 @@ class SyncService {
   // Habit CRUD operations
   async createHabit(habit: Habit): Promise<Habit> {
     // Generate temporary ID for offline use
+    const timestamp = new Date().toISOString();
     const newHabit: Habit = {
       ...habit,
       id: habit.id || Date.now(), // Use provided ID or generate one
-      createdDate: new Date().toISOString(),
-      lastModifiedDate: new Date().toISOString(),
+      createdDate: habit.createdDate ?? timestamp,
+      lastModifiedDate: timestamp,
+      isActive: habit.isActive ?? true,
+      reminderEnabled: habit.reminderEnabled ?? false,
+      syncStatus: 'pending',
     };
 
     await offlineDb.saveHabit(newHabit);
@@ -262,6 +356,9 @@ class SyncService {
       ...updates,
       id, // Ensure ID doesn't change
       lastModifiedDate: new Date().toISOString(),
+      reminderEnabled: updates.reminderEnabled ?? existing.reminderEnabled ?? false,
+      isActive: updates.isActive ?? existing.isActive ?? true,
+      syncStatus: 'pending',
     };
 
     await offlineDb.saveHabit(updatedHabit);
@@ -289,12 +386,14 @@ class SyncService {
     }
 
     // Create a copy with new ID and name
+    const timestamp = new Date().toISOString();
     const duplicate: Habit = {
       ...original,
       id: Date.now(), // New ID
       name: `${original.name} (Copy)`,
-      createdDate: new Date().toISOString(),
-      lastModifiedDate: new Date().toISOString(),
+      createdDate: timestamp,
+      lastModifiedDate: timestamp,
+      syncStatus: 'pending',
     };
 
     await offlineDb.saveHabit(duplicate);

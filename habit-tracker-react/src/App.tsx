@@ -84,10 +84,19 @@ function App() {
         // Seed sample data if database is empty
         await seedSampleData();
         
-        // Try to load initial data, but don't fail if server is offline
+        // Try to do a FULL sync to get all data from server
         try {
-          await syncService.loadInitialData();
-          console.log('Initial data loaded from server');
+          console.log('🔄 Performing FULL sync on app start...');
+          const result = await syncService.fullSync();
+          if (result.success) {
+            console.log('✅ Full sync completed - all server data loaded');
+            // Invalidate and refetch all queries to force refresh
+            await queryClient.invalidateQueries();
+            await queryClient.refetchQueries();
+            console.log('✅ Queries invalidated and refetched');
+          } else {
+            console.warn('⚠️ Full sync failed:', result.message);
+          }
         } catch (dataError) {
           console.warn('Could not load initial data from server, working offline:', dataError);
           // This is OK - we'll work with local data only

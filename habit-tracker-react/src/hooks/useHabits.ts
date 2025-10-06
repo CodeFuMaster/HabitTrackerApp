@@ -239,9 +239,18 @@ export function useSync() {
     },
   });
 
+  const fullSyncNow = useMutation({
+    mutationFn: () => syncService.fullSync(),
+    onSuccess: () => {
+      // Invalidate all queries to refetch data
+      queryClient.invalidateQueries();
+    },
+  });
+
   return {
     syncNow: syncNow.mutate,
-    isSyncing: syncNow.isPending,
+    isSyncing: syncNow.isPending || fullSyncNow.isPending,
+    fullSyncNow: fullSyncNow.mutate,
   };
 }
 

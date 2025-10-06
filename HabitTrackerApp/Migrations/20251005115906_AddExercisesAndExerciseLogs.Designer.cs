@@ -3,6 +3,7 @@ using System;
 using HabitTrackerApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HabitTrackerApp.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251005115906_AddExercisesAndExerciseLogs")]
+    partial class AddExercisesAndExerciseLogs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.2");
@@ -294,28 +297,18 @@ namespace HabitTrackerApp.Migrations
                     b.Property<int?>("CategoryId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Color")
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTimeOffset>("CreatedDate")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
+                        .IsRequired()
                         .HasColumnType("TEXT");
-
-                    b.Property<string>("DeviceId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("DurationMinutes")
-                        .HasColumnType("INTEGER");
 
                     b.Property<int>("HabitType")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Icon")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ImageUrl")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDeleted")
@@ -331,28 +324,18 @@ namespace HabitTrackerApp.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("RecurrenceInterval")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("RecurrenceType")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("ReminderEnabled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<TimeSpan?>("ReminderTime")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ShortDescription")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("SpecificDate")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SyncStatus")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Tags")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<TimeSpan?>("TimeOfDay")

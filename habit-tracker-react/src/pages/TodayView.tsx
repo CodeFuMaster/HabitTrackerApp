@@ -39,6 +39,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Today,
+  FitnessCenter,
 } from '@mui/icons-material';
 import { format, addDays, subDays, isToday } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
@@ -51,6 +52,7 @@ import MetricValuesDisplay from '../components/MetricValuesDisplay';
 import RoutineSessionView from '../components/RoutineSessionView';
 import { notificationService, formatTime } from '../services/notificationService';
 import NotificationHistory from '../components/NotificationHistory';
+import ATGChecklistModal from '../components/ATGChecklistModal';
 
 export default function TodayView() {
   const queryClient = useQueryClient();
@@ -58,7 +60,7 @@ export default function TodayView() {
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
   
   const { habits, toggleComplete, isLoading } = useHabitsForToday(formattedDate);
-  const { syncNow, isSyncing } = useSync();
+  const { fullSyncNow, isSyncing } = useSync();
   const [selectedHabit, setSelectedHabit] = useState<HabitWithStatus | null>(null);
   
   // Activity Logger state
@@ -80,6 +82,10 @@ export default function TodayView() {
   const [routineHabit, setRoutineHabit] = useState<Habit | null>(null);
   const [activeRoutine, setActiveRoutine] = useState<RoutineTemplate | null>(null);
   const [_routineTemplates, setRoutineTemplates] = useState<RoutineTemplate[]>([]);
+
+  // ATG Checklist state
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [checklistHabit, setChecklistHabit] = useState<Habit | null>(null);
 
   // Notification state
   const [reminders, setReminders] = useState<Map<number, any>>(new Map());
@@ -273,9 +279,11 @@ export default function TodayView() {
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <NotificationHistory />
-              <IconButton onClick={() => syncNow()} disabled={isSyncing}>
-                <Refresh sx={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
-              </IconButton>
+              <Tooltip title="Full Sync (Reset & Pull All Data)">
+                <IconButton onClick={() => fullSyncNow()} disabled={isSyncing}>
+                  <Refresh sx={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+                </IconButton>
+              </Tooltip>
             </Box>
           </Box>
 
@@ -489,6 +497,17 @@ export default function TodayView() {
                       )}
                       <IconButton
                         size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setChecklistHabit(habit);
+                          setChecklistOpen(true);
+                        }}
+                        title="Exercise Checklist"
+                      >
+                        <FitnessCenter fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
                         onClick={(e) => handleOpenActivityLogger(habit, e)}
                         title="Log Activity Details"
                       >
@@ -699,6 +718,24 @@ export default function TodayView() {
           />
         )}
       </Dialog>
+
+      {/* ATG Checklist Modal */}
+      {checklistHabit && (
+        <ATGChecklistModal
+          open={checklistOpen}
+          habitId={checklistHabit.id}
+          habitName={checklistHabit.name}
+          date={formattedDate}
+          onClose={() => {
+            setChecklistOpen(false);
+            setChecklistHabit(null);
+          }}
+          onComplete={() => {
+            // Refresh habits list after completing exercises
+            queryClient.invalidateQueries({ queryKey: ['habits', 'today', formattedDate] });
+          }}
+        />
+      )}
     </Box>
   );
 }

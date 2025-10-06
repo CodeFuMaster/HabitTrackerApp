@@ -4,13 +4,16 @@ export interface Habit {
   id: number;
   name: string;
   description?: string;
+  shortDescription?: string;
   categoryId?: number;
   recurrenceType: RecurrenceType;
   recurrenceInterval?: number;
   specificDaysOfWeek?: number[]; // 0=Sunday, 1=Monday, etc.
   specificDaysOfMonth?: number[];
   timeOfDay?: string; // HH:mm format
+  timeOfDayEnd?: string; // HH:mm format
   duration?: number; // minutes
+  habitType?: HabitType; // NEW: Type determines UI behavior
   isActive: boolean;
   color?: string;
   icon?: string;
@@ -22,6 +25,7 @@ export interface Habit {
   lastModifiedDate?: string;
   deviceId?: string;
   syncStatus?: 'pending' | 'synced' | 'conflict';
+  exercises?: Exercise[]; // NEW: Sub-exercises for routines
 }
 
 export enum RecurrenceType {
@@ -30,6 +34,14 @@ export enum RecurrenceType {
   Monthly = 2,
   SpecificDays = 3,
   Custom = 4
+}
+
+export enum HabitType {
+  Simple = 0,       // Regular habit (just complete/incomplete)
+  Routine = 1,      // ATG, Wim Hof - checklist of exercises
+  Gym = 2,          // Detailed sets/reps/weight logging
+  MartialArts = 3,  // Attendance + duration + drills
+  Learning = 4      // Time + topics + resources
 }
 
 export interface DailyHabitEntry {
@@ -109,6 +121,8 @@ export interface SyncChanges {
   entries: DailyHabitEntry[];
   categories: Category[];
   routineSessions: RoutineSession[];
+  exercises?: Exercise[];
+  exerciseLogs?: ExerciseLog[];
   serverTimestamp: number;
 }
 
@@ -119,6 +133,8 @@ export interface ClientChanges {
   entries: DailyHabitEntry[];
   categories: Category[];
   routineSessions: RoutineSession[];
+  exercises?: Exercise[];
+  exerciseLogs?: ExerciseLog[];
 }
 
 export interface SyncResponse {
@@ -225,4 +241,86 @@ export interface RoutineStep {
   order: number;
   isOptional: boolean;
   metrics?: HabitMetricDefinition[];
+}
+
+// Exercise Types (Sub-Habits)
+export interface Exercise {
+  id: number;
+  habitId: number;
+  name: string;
+  description?: string;
+  orderIndex: number;
+  
+  // Media
+  imageUrl?: string;
+  videoUrl?: string;
+  localVideoPath?: string;
+  documentUrls?: string[]; // Array of resource links
+  
+  // Target metrics (prescribed/template values)
+  targetSets?: number;
+  targetReps?: number;
+  targetWeight?: number; // kg
+  targetDuration?: number; // seconds
+  targetRPE?: number; // Rate of Perceived Exertion 1-10
+  restSeconds?: number; // Rest time between sets
+  
+  // Metadata
+  exerciseType?: ExerciseType;
+  muscleGroups?: string[]; // ["Quads", "Glutes"]
+  equipment?: string; // "Barbell", "Bodyweight", etc.
+  notes?: string; // Form cues, tips
+  
+  // Status
+  isActive: boolean;
+  createdDate: string;
+  lastModifiedDate?: string;
+  
+  // Sync
+  deviceId?: string;
+  syncStatus?: 'pending' | 'synced' | 'conflict';
+}
+
+export enum ExerciseType {
+  Strength = 'Strength',
+  Cardio = 'Cardio',
+  Flexibility = 'Flexibility',
+  Breathing = 'Breathing',
+  Meditation = 'Meditation',
+  Skill = 'Skill',
+  Mobility = 'Mobility',
+  Other = 'Other'
+}
+
+export interface ExerciseLog {
+  id: number;
+  exerciseId: number;
+  dailyHabitEntryId: number;
+  date: string;
+  
+  // Performance data
+  setNumber: number; // 1st set, 2nd set, etc.
+  actualReps?: number;
+  actualWeight?: number; // kg
+  actualDuration?: number; // seconds
+  actualRPE?: number; // 1-10
+  
+  // Timing
+  completedAt?: string;
+  
+  // Notes
+  notes?: string;
+  
+  // Sync
+  deviceId?: string;
+  syncStatus?: 'pending' | 'synced' | 'conflict';
+}
+
+// UI Helper for exercises with logs
+export interface ExerciseWithLogs extends Exercise {
+  logs: ExerciseLog[]; // Today's logs
+  lastPerformance?: ExerciseLog[]; // Previous workout logs
+  totalSetsCompleted?: number;
+  totalVolume?: number; // sets × reps × weight
+  isCompleted?: boolean;
 }

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { Habit, DailyHabitEntry, Category, SyncChanges, ClientChanges, SyncResponse } from '../types/habit.types';
+import { mapHabitToServer, normalizeHabitFromServer } from '../utils/habitMapper';
 
 const API_BASE_URL = 'http://localhost:5178/api';
 
@@ -17,7 +18,7 @@ export const apiService = {
   // Health check
   async ping(): Promise<boolean> {
     try {
-      const response = await apiClient.get('/EnhancedHabit/ping');
+      const response = await apiClient.get('/HabitApi/ping');
       return response.status === 200;
     } catch {
       return false;
@@ -26,49 +27,51 @@ export const apiService = {
 
   // Habits
   async getHabits(): Promise<Habit[]> {
-    const response = await apiClient.get<Habit[]>('/EnhancedHabit');
-    return response.data;
+    const response = await apiClient.get('/HabitApi');
+    return (response.data as any[]).map(normalizeHabitFromServer);
   },
 
   async getHabit(id: number): Promise<Habit> {
-    const response = await apiClient.get<Habit>(`/EnhancedHabit/${id}`);
-    return response.data;
+    const response = await apiClient.get(`/HabitApi/${id}`);
+    return normalizeHabitFromServer(response.data);
   },
 
   async createHabit(habit: Partial<Habit>): Promise<Habit> {
-    const response = await apiClient.post<Habit>('/EnhancedHabit', habit);
-    return response.data;
+    const payload = mapHabitToServer(habit as Habit);
+    const response = await apiClient.post('/HabitApi', payload);
+    return normalizeHabitFromServer(response.data);
   },
 
   async updateHabit(id: number, habit: Partial<Habit>): Promise<Habit> {
-    const response = await apiClient.put<Habit>(`/EnhancedHabit/${id}`, habit);
-    return response.data;
+    const payload = mapHabitToServer({ ...(habit as Habit), id });
+    const response = await apiClient.put(`/HabitApi/${id}`, payload);
+    return normalizeHabitFromServer(response.data);
   },
 
   async deleteHabit(id: number): Promise<void> {
-    await apiClient.delete(`/EnhancedHabit/${id}`);
+    await apiClient.delete(`/HabitApi/${id}`);
   },
 
   // Daily Entries
   async getDailyEntries(date: string): Promise<DailyHabitEntry[]> {
-    const response = await apiClient.get<DailyHabitEntry[]>(`/EnhancedHabit/entries`, {
+    const response = await apiClient.get<DailyHabitEntry[]>(`/HabitApi/entries`, {
       params: { date },
     });
     return response.data;
   },
 
   async createDailyEntry(entry: Partial<DailyHabitEntry>): Promise<DailyHabitEntry> {
-    const response = await apiClient.post<DailyHabitEntry>('/EnhancedHabit/entries', entry);
+    const response = await apiClient.post<DailyHabitEntry>('/HabitApi/entries', entry);
     return response.data;
   },
 
   async updateDailyEntry(id: number, entry: Partial<DailyHabitEntry>): Promise<DailyHabitEntry> {
-    const response = await apiClient.put<DailyHabitEntry>(`/EnhancedHabit/entries/${id}`, entry);
+    const response = await apiClient.put<DailyHabitEntry>(`/HabitApi/entries/${id}`, entry);
     return response.data;
   },
 
   async toggleCompletion(habitId: number, date: string): Promise<DailyHabitEntry> {
-    const response = await apiClient.post<DailyHabitEntry>('/EnhancedHabit/toggle', {
+    const response = await apiClient.post<DailyHabitEntry>('/HabitApi/toggle', {
       habitId,
       date,
     });
@@ -88,14 +91,23 @@ export const apiService = {
 
   // Sync endpoints (to be implemented on server)
   async getChangesSince(timestamp: number, deviceId: string): Promise<SyncChanges> {
-    const response = await apiClient.get<SyncChanges>('/EnhancedHabit/changes-since', {
+    const response = await apiClient.get<SyncChanges>('/HabitApi/changes-since', {
       params: { timestamp, deviceId },
     });
-    return response.data;
+    const data = response.data;
+    if (data?.habits) {
+      data.habits = data.habits.map(normalizeHabitFromServer);
+    }
+    return data;
   },
 
   async syncChanges(changes: ClientChanges): Promise<SyncResponse> {
-    const response = await apiClient.post<SyncResponse>('/EnhancedHabit/sync', changes);
+    const payload: any = {
+      ...changes,
+      habits: (changes.habits ?? []).map(mapHabitToServer),
+    };
+
+    const response = await apiClient.post<SyncResponse>('/HabitApi/sync', payload);
     return response.data;
   },
 };

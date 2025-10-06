@@ -9,7 +9,10 @@ import type {
   TimerSession,
   ActivityLog,
   RoutineTemplate,
-  RoutineStep
+  RoutineStep,
+  Exercise,
+  ExerciseLog,
+  ExerciseWithLogs
 } from '../types/habit.types';
 
 class OfflineDatabase {
@@ -41,6 +44,8 @@ class OfflineDatabase {
         console.log('Created new database');
       }
 
+      await this.runMigrations();
+
       this.initialized = true;
       console.log('Offline database initialized successfully');
     } catch (error) {
@@ -57,12 +62,15 @@ class OfflineDatabase {
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
+        shortDescription TEXT,
         categoryId INTEGER,
+        habitType INTEGER DEFAULT 0,
         recurrenceType INTEGER NOT NULL,
         recurrenceInterval INTEGER,
         specificDaysOfWeek TEXT,
         specificDaysOfMonth TEXT,
         timeOfDay TEXT,
+        timeOfDayEnd TEXT,
         duration INTEGER,
         isActive BOOLEAN DEFAULT 1,
         color TEXT,
@@ -186,6 +194,52 @@ class OfflineDatabase {
         FOREIGN KEY (templateId) REFERENCES routine_templates(id)
       );
 
+      CREATE TABLE IF NOT EXISTS exercises (
+        id INTEGER PRIMARY KEY,
+        habitId INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        orderIndex INTEGER NOT NULL DEFAULT 0,
+        imageUrl TEXT,
+        videoUrl TEXT,
+        localVideoPath TEXT,
+        documentUrls TEXT,
+        targetSets INTEGER,
+        targetReps INTEGER,
+        targetWeight REAL,
+        targetDuration INTEGER,
+        targetRPE INTEGER,
+        restSeconds INTEGER,
+        exerciseType TEXT,
+        muscleGroups TEXT,
+        equipment TEXT,
+        notes TEXT,
+        isActive INTEGER DEFAULT 1,
+        createdDate TEXT NOT NULL,
+        lastModifiedDate TEXT,
+        deviceId TEXT,
+        syncStatus TEXT DEFAULT 'pending',
+        FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS exercise_logs (
+        id INTEGER PRIMARY KEY,
+        exerciseId INTEGER NOT NULL,
+        dailyHabitEntryId INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        setNumber INTEGER NOT NULL DEFAULT 1,
+        actualReps INTEGER,
+        actualWeight REAL,
+        actualDuration INTEGER,
+        actualRPE INTEGER,
+        completedAt TEXT,
+        notes TEXT,
+        deviceId TEXT,
+        syncStatus TEXT DEFAULT 'pending',
+        FOREIGN KEY (exerciseId) REFERENCES exercises(id) ON DELETE CASCADE,
+        FOREIGN KEY (dailyHabitEntryId) REFERENCES daily_entries(id) ON DELETE CASCADE
+      );
+
       CREATE INDEX IF NOT EXISTS idx_daily_entries_date ON daily_entries(date);
       CREATE INDEX IF NOT EXISTS idx_daily_entries_habit ON daily_entries(habitId);
       CREATE INDEX IF NOT EXISTS idx_sync_log_synced ON sync_log(synced);
@@ -194,9 +248,41 @@ class OfflineDatabase {
       CREATE INDEX IF NOT EXISTS idx_timer_sessions_habit ON timer_sessions(habitId);
       CREATE INDEX IF NOT EXISTS idx_activity_logs_entry ON activity_logs(entryId);
       CREATE INDEX IF NOT EXISTS idx_routine_steps_template ON routine_steps(templateId);
+      CREATE INDEX IF NOT EXISTS idx_exercises_habit ON exercises(habitId);
+      CREATE INDEX IF NOT EXISTS idx_exercises_order ON exercises(orderIndex);
+      CREATE INDEX IF NOT EXISTS idx_exercise_logs_exercise ON exercise_logs(exerciseId);
+      CREATE INDEX IF NOT EXISTS idx_exercise_logs_date ON exercise_logs(date);
+      CREATE INDEX IF NOT EXISTS idx_exercise_logs_entry ON exercise_logs(dailyHabitEntryId);
     `);
 
     await this.saveToStorage();
+  }
+
+  private async runMigrations(): Promise<void> {
+    if (!this.db) return;
+
+    const habitsInfo = this.db.exec('PRAGMA table_info(habits)');
+    if (habitsInfo.length > 0) {
+      const columns = new Set(habitsInfo[0].values.map((row) => row[1] as string));
+      if (!columns.has('shortDescription')) {
+        this.db.run('ALTER TABLE habits ADD COLUMN shortDescription TEXT');
+      }
+      if (!columns.has('timeOfDayEnd')) {
+        this.db.run('ALTER TABLE habits ADD COLUMN timeOfDayEnd TEXT');
+      }
+      if (!columns.has('recurrenceInterval')) {
+        this.db.run('ALTER TABLE habits ADD COLUMN recurrenceInterval INTEGER');
+      }
+      if (!columns.has('specificDaysOfWeek')) {
+        this.db.run('ALTER TABLE habits ADD COLUMN specificDaysOfWeek TEXT');
+      }
+      if (!columns.has('specificDaysOfMonth')) {
+        this.db.run('ALTER TABLE habits ADD COLUMN specificDaysOfMonth TEXT');
+      }
+      if (!columns.has('reminderTime')) {
+        this.db.run('ALTER TABLE habits ADD COLUMN reminderTime TEXT');
+      }
+    }
   }
 
   private async saveToStorage(): Promise<void> {
@@ -230,35 +316,132 @@ class OfflineDatabase {
 
     const exists = await this.getHabit(habit.id);
     
+    // Default isActive to true if not provided (backend doesn't send this field)
+    const isActive = habit.isActive !== undefined ? habit.isActive : true;
+
+    const rawTags = (habit as any)?.tags;
+    const normalizedTags: string[] = Array.isArray(rawTags)
+      ? rawTags
+      : typeof rawTags === 'string'
+        ? rawTags.split(',').map((t: string) => t.trim()).filter(Boolean)
+        : [];
+
+    const serializedTags = JSON.stringify(normalizedTags);
+    const serializedDaysOfWeek = habit.specificDaysOfWeek?.length ? JSON.stringify(habit.specificDaysOfWeek) : null;
+    const serializedDaysOfMonth = habit.specificDaysOfMonth?.length ? JSON.stringify(habit.specificDaysOfMonth) : null;
+    const syncStatus = habit.syncStatus ?? (exists ? 'pending' : 'synced');
+
     if (exists) {
       // Update
       this.db.run(`
         UPDATE habits SET
-          name = ?, description = ?, categoryId = ?, recurrenceType = ?,
-          timeOfDay = ?, duration = ?, isActive = ?, color = ?,
-          imageUrl = ?, reminderEnabled = ?, tags = ?,
-          lastModifiedDate = ?, syncStatus = 'pending'
+          name = ?,
+          description = ?,
+          shortDescription = ?,
+          categoryId = ?,
+          habitType = ?,
+          recurrenceType = ?,
+          recurrenceInterval = ?,
+          specificDaysOfWeek = ?,
+          specificDaysOfMonth = ?,
+          timeOfDay = ?,
+          timeOfDayEnd = ?,
+          duration = ?,
+          isActive = ?,
+          color = ?,
+          icon = ?,
+          imageUrl = ?,
+          reminderEnabled = ?,
+          reminderTime = ?,
+          tags = ?,
+          lastModifiedDate = ?,
+          deviceId = ?,
+          syncStatus = ?
         WHERE id = ?
       `, [
-        habit.name, habit.description ?? null, habit.categoryId ?? null, habit.recurrenceType,
-        habit.timeOfDay ?? null, habit.duration ?? null, habit.isActive ? 1 : 0, habit.color ?? null,
-        habit.imageUrl ?? null, habit.reminderEnabled ? 1 : 0, JSON.stringify(habit.tags ?? []),
-        new Date().toISOString(), habit.id
+        habit.name,
+        habit.description ?? null,
+        habit.shortDescription ?? null,
+        habit.categoryId ?? null,
+        habit.habitType ?? 0,
+        habit.recurrenceType,
+        habit.recurrenceInterval ?? null,
+        serializedDaysOfWeek,
+        serializedDaysOfMonth,
+        habit.timeOfDay ?? null,
+        habit.timeOfDayEnd ?? null,
+        habit.duration ?? null,
+        isActive ? 1 : 0,
+        habit.color ?? null,
+        habit.icon ?? null,
+        habit.imageUrl ?? null,
+        habit.reminderEnabled ? 1 : 0,
+        habit.reminderTime ?? null,
+        serializedTags,
+        new Date().toISOString(),
+        habit.deviceId ?? null,
+        syncStatus,
+        habit.id
       ]);
     } else {
       // Insert
       this.db.run(`
         INSERT INTO habits (
-          id, name, description, categoryId, recurrenceType,
-          timeOfDay, duration, isActive, color, imageUrl,
-          reminderEnabled, tags, createdDate, syncStatus
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')
+          id,
+          name,
+          description,
+          shortDescription,
+          categoryId,
+          habitType,
+          recurrenceType,
+          recurrenceInterval,
+          specificDaysOfWeek,
+          specificDaysOfMonth,
+          timeOfDay,
+          timeOfDayEnd,
+          duration,
+          isActive,
+          color,
+          icon,
+          imageUrl,
+          reminderEnabled,
+          reminderTime,
+          tags,
+          createdDate,
+          lastModifiedDate,
+          deviceId,
+          syncStatus
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
-        habit.id, habit.name, habit.description ?? null, habit.categoryId ?? null, habit.recurrenceType,
-        habit.timeOfDay ?? null, habit.duration ?? null, habit.isActive ? 1 : 0, habit.color ?? null,
-        habit.imageUrl ?? null, habit.reminderEnabled ? 1 : 0, JSON.stringify(habit.tags ?? []),
-        habit.createdDate ?? new Date().toISOString()
+        habit.id,
+        habit.name,
+        habit.description ?? null,
+        habit.shortDescription ?? null,
+        habit.categoryId ?? null,
+        habit.habitType ?? 0,
+        habit.recurrenceType,
+        habit.recurrenceInterval ?? null,
+        serializedDaysOfWeek,
+        serializedDaysOfMonth,
+        habit.timeOfDay ?? null,
+        habit.timeOfDayEnd ?? null,
+        habit.duration ?? null,
+        isActive ? 1 : 0,
+        habit.color ?? null,
+        habit.icon ?? null,
+        habit.imageUrl ?? null,
+        habit.reminderEnabled ? 1 : 0,
+        habit.reminderTime ?? null,
+        serializedTags,
+        habit.createdDate ?? new Date().toISOString(),
+        habit.lastModifiedDate ?? null,
+        habit.deviceId ?? null,
+        syncStatus
       ]);
+    }
+
+    if (syncStatus === 'pending') {
+      await this.logChange('habits', habit.id, exists ? 'UPDATE' : 'INSERT');
     }
 
     await this.saveToStorage();
@@ -381,8 +564,32 @@ class OfflineDatabase {
       result.columns.forEach((col, index) => {
         let value = row[index];
         
-        // Parse JSON strings
-        if (col === 'tags' || col === 'specificDaysOfWeek' || col === 'specificDaysOfMonth' || 
+        // Parse tags field - handle both JSON array and comma-separated string from backend
+        if (col === 'tags') {
+          if (!value) {
+            value = [];
+          } else if (typeof value === 'string') {
+            try {
+              const parsed = JSON.parse(value);
+              if (Array.isArray(parsed)) {
+                value = parsed;
+              } else if (typeof parsed === 'string') {
+                value = parsed.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+              } else {
+                value = [];
+              }
+            } catch {
+              value = value.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+            }
+          } else if (Array.isArray(value)) {
+            value = value;
+          } else {
+            value = [];
+          }
+        }
+        
+        // Parse other JSON strings
+        if (col === 'specificDaysOfWeek' || col === 'specificDaysOfMonth' || 
             col === 'options' || col === 'metadata') {
           try {
             value = value ? JSON.parse(value) : null;
@@ -718,6 +925,329 @@ class OfflineDatabase {
     ]);
 
     await this.saveToStorage();
+  }
+
+  // ==================== EXERCISES ====================
+
+  async getExercisesForHabit(habitId: number): Promise<Exercise[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = this.db.exec(
+      'SELECT * FROM exercises WHERE habitId = ? AND isActive = 1 ORDER BY orderIndex ASC',
+      [habitId]
+    );
+    
+    if (results.length === 0) return [];
+    
+    return this.formatResults<Exercise>(results[0]).map(ex => ({
+      ...ex,
+      documentUrls: ex.documentUrls ? JSON.parse(ex.documentUrls as unknown as string) : [],
+      muscleGroups: ex.muscleGroups ? JSON.parse(ex.muscleGroups as unknown as string) : []
+    }));
+  }
+
+  async getExercise(id: number): Promise<Exercise | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = this.db.exec('SELECT * FROM exercises WHERE id = ?', [id]);
+    if (results.length === 0 || results[0].values.length === 0) return null;
+    
+    const exercises = this.formatResults<Exercise>(results[0]);
+    const exercise = exercises[0];
+    
+    if (!exercise) return null;
+    
+    return {
+      ...exercise,
+      documentUrls: exercise.documentUrls ? JSON.parse(exercise.documentUrls as unknown as string) : [],
+      muscleGroups: exercise.muscleGroups ? JSON.parse(exercise.muscleGroups as unknown as string) : []
+    };
+  }
+
+  async saveExercise(exercise: Exercise): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const exists = exercise.id ? await this.getExercise(exercise.id) : null;
+    
+    const documentUrlsJson = JSON.stringify(exercise.documentUrls ?? []);
+    const muscleGroupsJson = JSON.stringify(exercise.muscleGroups ?? []);
+    
+    if (exists) {
+      // Update
+      this.db.run(`
+        UPDATE exercises SET
+          name = ?, description = ?, orderIndex = ?, imageUrl = ?,
+          videoUrl = ?, localVideoPath = ?, documentUrls = ?,
+          targetSets = ?, targetReps = ?, targetWeight = ?, targetDuration = ?,
+          targetRPE = ?, restSeconds = ?, exerciseType = ?, muscleGroups = ?,
+          equipment = ?, notes = ?, isActive = ?, lastModifiedDate = ?,
+          syncStatus = 'pending'
+        WHERE id = ?
+      `, [
+        exercise.name,
+        exercise.description ?? null,
+        exercise.orderIndex,
+        exercise.imageUrl ?? null,
+        exercise.videoUrl ?? null,
+        exercise.localVideoPath ?? null,
+        documentUrlsJson,
+        exercise.targetSets ?? null,
+        exercise.targetReps ?? null,
+        exercise.targetWeight ?? null,
+        exercise.targetDuration ?? null,
+        exercise.targetRPE ?? null,
+        exercise.restSeconds ?? null,
+        exercise.exerciseType ?? null,
+        muscleGroupsJson,
+        exercise.equipment ?? null,
+        exercise.notes ?? null,
+        exercise.isActive ? 1 : 0,
+        new Date().toISOString(),
+        exercise.id
+      ]);
+      
+      await this.logChange('exercises', exercise.id, 'UPDATE');
+      await this.saveToStorage();
+      return exercise.id;
+    } else {
+      // Insert - generate ID
+      const idResult = this.db.exec('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM exercises');
+      const nextId = idResult[0]?.values[0]?.[0] as number ?? 1;
+      
+      this.db.run(`
+        INSERT INTO exercises (
+          id, habitId, name, description, orderIndex, imageUrl,
+          videoUrl, localVideoPath, documentUrls,
+          targetSets, targetReps, targetWeight, targetDuration,
+          targetRPE, restSeconds, exerciseType, muscleGroups,
+          equipment, notes, isActive, createdDate, syncStatus
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      `, [
+        nextId,
+        exercise.habitId,
+        exercise.name,
+        exercise.description ?? null,
+        exercise.orderIndex,
+        exercise.imageUrl ?? null,
+        exercise.videoUrl ?? null,
+        exercise.localVideoPath ?? null,
+        documentUrlsJson,
+        exercise.targetSets ?? null,
+        exercise.targetReps ?? null,
+        exercise.targetWeight ?? null,
+        exercise.targetDuration ?? null,
+        exercise.targetRPE ?? null,
+        exercise.restSeconds ?? null,
+        exercise.exerciseType ?? null,
+        muscleGroupsJson,
+        exercise.equipment ?? null,
+        exercise.notes ?? null,
+        exercise.isActive ? 1 : 0,
+        exercise.createdDate ?? new Date().toISOString()
+      ]);
+      
+      await this.logChange('exercises', nextId, 'INSERT');
+      await this.saveToStorage();
+      return nextId;
+    }
+  }
+
+  async deleteExercise(exerciseId: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Soft delete
+    this.db.run(
+      'UPDATE exercises SET isActive = 0, syncStatus = \'pending\' WHERE id = ?',
+      [exerciseId]
+    );
+    
+    await this.logChange('exercises', exerciseId, 'DELETE');
+    await this.saveToStorage();
+  }
+
+  async updateExerciseOrder(exerciseId: number, newOrder: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    this.db.run(
+      'UPDATE exercises SET orderIndex = ?, syncStatus = \'pending\' WHERE id = ?',
+      [newOrder, exerciseId]
+    );
+    
+    await this.logChange('exercises', exerciseId, 'UPDATE');
+    await this.saveToStorage();
+  }
+
+  // ==================== EXERCISE LOGS ====================
+
+  async getExerciseLogsForDate(exerciseId: number, date: string): Promise<ExerciseLog[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = this.db.exec(
+      'SELECT * FROM exercise_logs WHERE exerciseId = ? AND date = ? ORDER BY setNumber ASC',
+      [exerciseId, date]
+    );
+    
+    if (results.length === 0) return [];
+    
+    return this.formatResults<ExerciseLog>(results[0]);
+  }
+
+  async getExerciseLogsForEntry(dailyHabitEntryId: number): Promise<ExerciseLog[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = this.db.exec(
+      'SELECT * FROM exercise_logs WHERE dailyHabitEntryId = ? ORDER BY exerciseId, setNumber ASC',
+      [dailyHabitEntryId]
+    );
+    
+    if (results.length === 0) return [];
+    
+    return this.formatResults<ExerciseLog>(results[0]);
+  }
+
+  async getLastPerformance(exerciseId: number, beforeDate: string): Promise<ExerciseLog[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Get the most recent date before the given date
+    const dateResults = this.db.exec(
+      'SELECT MAX(date) as lastDate FROM exercise_logs WHERE exerciseId = ? AND date < ?',
+      [exerciseId, beforeDate]
+    );
+    
+    if (dateResults.length === 0 || !dateResults[0].values[0]?.[0]) return [];
+    
+    const lastDate = dateResults[0].values[0][0] as string;
+    
+    // Get all logs from that date
+    const results = this.db.exec(
+      'SELECT * FROM exercise_logs WHERE exerciseId = ? AND date = ? ORDER BY setNumber ASC',
+      [exerciseId, lastDate]
+    );
+    
+    if (results.length === 0) return [];
+    
+    return this.formatResults<ExerciseLog>(results[0]);
+  }
+
+  async saveExerciseLog(log: ExerciseLog): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const exists = log.id ? await this.getExerciseLog(log.id) : null;
+    
+    if (exists) {
+      // Update
+      this.db.run(`
+        UPDATE exercise_logs SET
+          actualReps = ?, actualWeight = ?, actualDuration = ?,
+          actualRPE = ?, completedAt = ?, notes = ?, syncStatus = 'pending'
+        WHERE id = ?
+      `, [
+        log.actualReps ?? null,
+        log.actualWeight ?? null,
+        log.actualDuration ?? null,
+        log.actualRPE ?? null,
+        log.completedAt ?? null,
+        log.notes ?? null,
+        log.id
+      ]);
+      
+      await this.logChange('exercise_logs', log.id, 'UPDATE');
+      await this.saveToStorage();
+      return log.id;
+    } else {
+      // Insert - generate ID
+      const idResult = this.db.exec('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM exercise_logs');
+      const nextId = idResult[0]?.values[0]?.[0] as number ?? 1;
+      
+      this.db.run(`
+        INSERT INTO exercise_logs (
+          id, exerciseId, dailyHabitEntryId, date, setNumber,
+          actualReps, actualWeight, actualDuration, actualRPE,
+          completedAt, notes, syncStatus
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      `, [
+        nextId,
+        log.exerciseId,
+        log.dailyHabitEntryId,
+        log.date,
+        log.setNumber,
+        log.actualReps ?? null,
+        log.actualWeight ?? null,
+        log.actualDuration ?? null,
+        log.actualRPE ?? null,
+        log.completedAt ?? new Date().toISOString(),
+        log.notes ?? null
+      ]);
+      
+      await this.logChange('exercise_logs', nextId, 'INSERT');
+      await this.saveToStorage();
+      return nextId;
+    }
+  }
+
+  async getExerciseLog(id: number): Promise<ExerciseLog | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = this.db.exec('SELECT * FROM exercise_logs WHERE id = ?', [id]);
+    if (results.length === 0 || results[0].values.length === 0) return null;
+    
+    const logs = this.formatResults<ExerciseLog>(results[0]);
+    return logs[0] || null;
+  }
+
+  async deleteExerciseLog(logId: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    this.db.run('DELETE FROM exercise_logs WHERE id = ?', [logId]);
+    
+    await this.logChange('exercise_logs', logId, 'DELETE');
+    await this.saveToStorage();
+  }
+
+  async batchSaveExerciseLogs(logs: ExerciseLog[]): Promise<number[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const ids: number[] = [];
+    
+    for (const log of logs) {
+      const id = await this.saveExerciseLog(log);
+      ids.push(id);
+    }
+    
+    return ids;
+  }
+
+  async getExercisesWithLogsForDate(habitId: number, date: string): Promise<ExerciseWithLogs[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Get all exercises for the habit
+    const exercises = await this.getExercisesForHabit(habitId);
+    
+    // Get logs for each exercise
+    const exercisesWithLogs: ExerciseWithLogs[] = [];
+    
+    for (const exercise of exercises) {
+      const logs = await this.getExerciseLogsForDate(exercise.id, date);
+      const lastPerformance = await this.getLastPerformance(exercise.id, date);
+      
+      // Calculate stats
+      const totalSetsCompleted = logs.length;
+      const totalVolume = logs.reduce((sum, log) => {
+        return sum + ((log.actualReps ?? 0) * (log.actualWeight ?? 0));
+      }, 0);
+      const isCompleted = logs.length >= (exercise.targetSets ?? 0);
+      
+      exercisesWithLogs.push({
+        ...exercise,
+        logs,
+        lastPerformance,
+        totalSetsCompleted,
+        totalVolume,
+        isCompleted
+      });
+    }
+    
+    return exercisesWithLogs;
   }
 }
 
